@@ -1,0 +1,8 @@
+services:
+  local_backend:
+    build: .
+    container_name: comerza_app
+    restart: always
+    env_file:
+      - .env
+    network_mode: 3002
