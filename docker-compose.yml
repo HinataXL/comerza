@@ -5,4 +5,5 @@ services:
     restart: always
     env_file:
       - .env
-    network_mode: 3002
+    ports:
+      - "3002:3002"
