@@ -13,6 +13,13 @@ jobs:
       - name: Actualizar código y reconstruir contenedores
         run: |
           cd ~/servidor-web/comerza
-          git pull origin main
+          
+          # 1. Trae la información más reciente de GitHub sin modificar los archivos aún
+          git fetch origin
+          
+          # 2. Fuerza al código local a ser una copia idéntica a la rama main de GitHub
+          git reset --hard origin/main
+          
+          # 3. Reconstruye el proyecto
           docker compose down
           docker compose up -d --build
