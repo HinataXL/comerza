@@ -4,6 +4,7 @@ services:
     container_name: comerza_app
     restart: always
     env_file:
-      - .env
+      - apps/api/.env
+      - apps/web/.env
     ports:
       - "3002:3002"
