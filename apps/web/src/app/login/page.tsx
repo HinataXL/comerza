@@ -1,13 +1,14 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShoppingCart, Mail, Lock, ArrowRight, Loader2, Key } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import './login.css';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -37,10 +38,10 @@ export default function LoginPage() {
           router.push('/dashboard');
         }
       } else {
-        setErrorMsg(data.message || 'Error al iniciar sesión');
+        setErrorMsg(data.message || 'El correo o la contraseña no son correctos.');
       }
     } catch (error) {
-      setErrorMsg('Error de conexión con el servidor');
+      setErrorMsg('No pudimos conectarnos. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -62,17 +63,17 @@ export default function LoginPage() {
       const data = await res.json();
       
       if (res.ok) {
-        setSuccessMsg(data.message || 'Contraseña temporal enviada');
+        setSuccessMsg(data.message || 'Te hemos enviado instrucciones a tu correo.');
         setTimeout(() => {
           setIsForgotPassword(false);
           setSuccessMsg('');
           setPassword('');
         }, 5000);
       } else {
-        setErrorMsg(data.message || 'Error al restablecer contraseña');
+        setErrorMsg(data.message || 'Error al restablecer la contraseña.');
       }
     } catch (error) {
-      setErrorMsg('Error de conexión con el servidor');
+      setErrorMsg('No pudimos conectarnos. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
     }
@@ -80,134 +81,145 @@ export default function LoginPage() {
 
   return (
     <div className="login-page-wrapper">
-      <div className="login-glass-panel">
-        
-        <div className="login-header">
-          <div className="login-logo">
-            <ShoppingCart size={28} />
-          </div>
-          <h1 className="login-title">Comerza</h1>
-          <p className="login-subtitle">Gestión inteligente de ventas y cobros</p>
+      
+      <div className="login-brand-panel">
+        <div>
+          <div className="login-logo">COMERZA</div>
         </div>
-        
-        {isForgotPassword ? (
-          <form className="login-form" onSubmit={handleForgotPassword}>
-            <p style={{ color: '#475569', fontSize: '0.875rem', marginBottom: '1.5rem', textAlign: 'center' }}>
-              Ingresa tu correo y te enviaremos una contraseña temporal.
-            </p>
+        <div className="login-brand-text">
+          Tu negocio,<br />
+          en un solo lugar.
+        </div>
+      </div>
 
-            <div className="input-group">
-              <label htmlFor="email">Correo Electrónico</label>
-              <div className="login-input-wrapper">
-                <Mail size={18} className="login-input-icon" />
-                <input 
-                  type="email" 
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@email.com" 
-                  required 
-                />
-              </div>
-            </div>
+      <div className="login-form-panel">
+        <div className="login-form-container">
+          
+          <h1 className="login-title">
+            {isForgotPassword ? 'Recuperar contraseña' : 'Iniciar sesión'}
+          </h1>
+          
+          {isForgotPassword ? (
+            <form className="login-form" onSubmit={handleForgotPassword}>
+              <p style={{ color: '#6B7280', fontSize: '0.875rem', marginTop: '-1rem' }}>
+                Ingresa tu correo electrónico y te enviaremos instrucciones para acceder.
+              </p>
 
-            {errorMsg && (
-              <div style={{ color: '#f87171', fontSize: '0.875rem', marginTop: '-0.5rem', marginBottom: '1rem', textAlign: 'center' }}>
-                {errorMsg}
+              <div className="input-group">
+                <label htmlFor="email">Correo electrónico</label>
+                <div className="login-input-wrapper">
+                  <input 
+                    type="email" 
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@empresa.com" 
+                    required 
+                  />
+                </div>
               </div>
-            )}
-            
-            {successMsg && (
-              <div style={{ color: '#34d399', fontSize: '0.875rem', marginTop: '-0.5rem', marginBottom: '1rem', textAlign: 'center' }}>
-                {successMsg}
-              </div>
-            )}
 
-            <button className="login-submit-btn" type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <><Loader2 size={20} className="animate-spin" /> Procesando...</>
-              ) : (
-                <>Enviar Contraseña <Key size={20} style={{ marginLeft: '8px' }} /></>
+              {errorMsg && (
+                <div className="form-message error">{errorMsg}</div>
               )}
-            </button>
+              
+              {successMsg && (
+                <div className="form-message success">{successMsg}</div>
+              )}
 
-            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-              <button 
-                type="button" 
-                onClick={() => {
-                  setIsForgotPassword(false);
-                  setErrorMsg('');
-                  setSuccessMsg('');
-                }}
-                style={{ background: 'none', border: 'none', color: '#7c3aed', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 600 }}
-              >
-                Volver al inicio de sesión
+              <button className="login-submit-btn" type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <><Loader2 size={18} className="animate-spin" /> Procesando...</>
+                ) : (
+                  'Enviar instrucciones'
+                )}
               </button>
-            </div>
-          </form>
-        ) : (
-          <form className="login-form" onSubmit={handleLogin}>
-            
-            <div className="input-group">
-              <label htmlFor="email">Correo Electrónico</label>
-              <div className="login-input-wrapper">
-                <Mail size={18} className="login-input-icon" />
-                <input 
-                  type="email" 
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu@email.com" 
-                  required 
-                />
-              </div>
-            </div>
 
-            <div className="input-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <label htmlFor="password" style={{ marginBottom: 0 }}>Contraseña</label>
+              <div style={{ marginTop: '0.5rem' }}>
                 <button 
-                  type="button"
+                  type="button" 
                   onClick={() => {
-                    setIsForgotPassword(true);
+                    setIsForgotPassword(false);
                     setErrorMsg('');
                     setSuccessMsg('');
                   }}
-                  style={{ background: 'none', border: 'none', color: '#7c3aed', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                  style={{ background: 'none', border: 'none', color: '#111827', fontSize: '0.875rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
                 >
-                  ¿Olvidaste tu contraseña?
+                  Volver a iniciar sesión
                 </button>
               </div>
-              <div className="login-input-wrapper">
-                <Lock size={18} className="login-input-icon" />
-                <input 
-                  type="password" 
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••" 
-                  required 
-                />
+            </form>
+          ) : (
+            <form className="login-form" onSubmit={handleLogin}>
+              
+              <div className="input-group">
+                <label htmlFor="email">Correo electrónico</label>
+                <div className="login-input-wrapper">
+                  <input 
+                    type="email" 
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tu@empresa.com" 
+                    required 
+                  />
+                </div>
               </div>
-            </div>
 
-            {errorMsg && (
-              <div style={{ color: '#f87171', fontSize: '0.875rem', marginTop: '-0.5rem', marginBottom: '1rem', textAlign: 'center' }}>
-                {errorMsg}
+              <div className="input-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <label htmlFor="password">Contraseña</label>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setErrorMsg('');
+                      setSuccessMsg('');
+                    }}
+                    className="forgot-password-link"
+                    tabIndex={-1}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+                <div className="login-input-wrapper">
+                  <input 
+                    className="has-icon"
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••" 
+                    required 
+                  />
+                  <button 
+                    type="button" 
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
-            )}
 
-            <button className="login-submit-btn" type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <><Loader2 size={20} className="animate-spin" /> Autenticando...</>
-              ) : (
-                <>Ingresar al Sistema <ArrowRight size={20} /></>
+              {errorMsg && (
+                <div className="form-message error">{errorMsg}</div>
               )}
-            </button>
-          </form>
-        )}
 
+              <button className="login-submit-btn" type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <><Loader2 size={18} className="animate-spin" /> Iniciando sesión...</>
+                ) : (
+                  'Iniciar sesión'
+                )}
+              </button>
+            </form>
+          )}
+
+        </div>
       </div>
+
     </div>
   );
 }

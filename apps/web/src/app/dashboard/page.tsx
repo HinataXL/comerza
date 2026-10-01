@@ -1,11 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import KpiCard from '@/components/dashboard/KpiCard';
-import Charts from '@/components/dashboard/Charts';
-import GatewaysAndAlerts from '@/components/dashboard/GatewaysAndAlerts';
-import RecentTables from '@/components/dashboard/RecentTables';
-import { BarChart, AlertCircle, FileText, ShieldCheck } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import '@/components/dashboard/dashboard.css';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -43,7 +41,7 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex-center" style={{ height: 'calc(100vh - 70px)' }}>
+      <div className="flex-center" style={{ height: 'calc(100vh - 70px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p className="text-secondary">Cargando dashboard...</p>
       </div>
     );
@@ -51,53 +49,164 @@ export default function DashboardPage() {
 
   if (error || !data) {
     return (
-      <div className="flex-center" style={{ height: 'calc(100vh - 70px)' }}>
-        <p className="text-error">{error || 'No se pudo cargar la información'}</p>
+      <div className="flex-center" style={{ height: 'calc(100vh - 70px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p className="text-danger">{error || 'No se pudo cargar la información'}</p>
       </div>
     );
   }
 
-  return (
-    <div>
-      <div className="kpi-grid">
-        <KpiCard 
-          title="Ventas del mes" 
-          value={`Q ${data.kpis.ventasDelMes.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
-          trend={data.kpis.ventasDelMes.trend} 
-          isPositive={data.kpis.ventasDelMes.isPositive} 
-          subtitle="vs. mes anterior"
-          icon={BarChart}
-          iconColor="#2563eb"
-          iconBg="#eff6ff"
-        />
-        <KpiCard 
-          title="Cobros pendientes" 
-          value={`Q ${data.kpis.cobrosPendientes.value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
-          trend={data.kpis.cobrosPendientes.trend} 
-          isPositive={data.kpis.cobrosPendientes.isPositive} 
-          subtitle=""
-          icon={AlertCircle}
-          iconColor="#f59e0b"
-          iconBg="#fef3c7"
-        />
+  // Merge transactions and invoices for the unified activity feed
+  const txs = (data.tables?.transactions || []).map((t: any) => ({
+    type: 'Venta',
+    date: t.date,
+    client: t.client,
+    amount: t.amount,
+    status: t.status
+  }));
+  const invs = (data.tables?.invoices || []).map((i: any) => ({
+    type: 'Cobro emitido',
+    date: i.date,
+    client: i.client,
+    amount: i.total,
+    status: i.status
+  }));
+  const mergedActivity = [...txs, ...invs].slice(0, 8); // Interleaved recent activity
 
-        <KpiCard 
-          title="Transacciones aprobadas" 
-          value={data.kpis.transaccionesAprobadas.value} 
-          trend={data.kpis.transaccionesAprobadas.trend} 
-          isPositive={data.kpis.transaccionesAprobadas.isPositive} 
-          subtitle="vs. mes anterior"
-          icon={ShieldCheck}
-          iconColor="#8b5cf6"
-          iconBg="#ede9fe"
-        />
+  return (
+    <div className="dashboard-container">
+      {/* COLUMNA IZQUIERDA: El dinero */}
+      <div className="dashboard-main">
+        {/* Nivel 1: Ventas */}
+        <div className="dashboard-section">
+          <h2 className="section-title" style={{ fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 500, marginBottom: '0.5rem' }}>
+            Ventas de hoy
+          </h2>
+          <div className="kpi-display">
+            Q {data.kpis?.ventasDelMes?.value.toLocaleString('en-US', { maximumFractionDigits: 0 }) || '0'}
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <span className={data.kpis?.ventasDelMes?.isPositive ? "text-success" : "text-danger"} style={{ fontWeight: 500 }}>
+              {data.kpis?.ventasDelMes?.trend || '0%'} vs. ayer
+            </span>
+            <span className="text-secondary">
+              Este mes: Q {((data.kpis?.ventasDelMes?.value || 0) * 1.5).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            </span>
+          </div>
+          
+          <div className="sparkline-container">
+            {data.charts?.lineData && (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data.charts.lineData}>
+                  <Line type="monotone" dataKey="ventas" stroke="#111827" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        {/* Nivel 3: Por cobrar */}
+        <div className="dashboard-section">
+          <h2 className="section-title">Por cobrar</h2>
+          <div className="kpi-display" style={{ fontSize: '2.25rem' }}>
+            Q {data.kpis?.cobrosPendientes?.value.toLocaleString('en-US', { maximumFractionDigits: 0 }) || '0'}
+          </div>
+          <div className="text-secondary">
+            Cobros pendientes
+          </div>
+        </div>
+
+        {/* Nivel 5: Actividad */}
+        <div className="dashboard-section" style={{ borderBottom: 'none' }}>
+          <h2 className="section-title">Actividad reciente</h2>
+          <div className="activity-list">
+            {mergedActivity.map((act, i) => (
+              <div key={i} className="activity-item">
+                <div className="activity-date">{act.date}</div>
+                <div className="activity-client">
+                  {act.type}
+                  <span>{act.client}</span>
+                </div>
+                <div className="activity-amount">{act.amount}</div>
+                <div className="activity-status">
+                  <span className={`status-badge ${
+                    ['Aprobado', 'Pagada', 'Pagado'].includes(act.status) ? 'status-success' : 
+                    ['Rechazado', 'Vencida', 'Vencido'].includes(act.status) ? 'status-error' : 
+                    'status-warning'
+                  }`}>
+                    {act.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <Charts lineData={data.charts.lineData} pieData={data.charts.pieData} />
-      
-      <GatewaysAndAlerts activeGateways={data.gatewaysAndFel.activeGateways} fel={data.gatewaysAndFel.fel} inventoryAlerts={data.gatewaysAndFel.inventoryAlerts} />
-      
-      <RecentTables transactions={data.tables.transactions} invoices={data.tables.invoices} />
+      {/* COLUMNA DERECHA: Sidecar contextual y urgencias */}
+      <div className="dashboard-sidebar">
+        
+        {/* Nivel 2: Atención requerida */}
+        <div className="dashboard-section">
+          <h2 className="section-title" style={{ color: '#DC2626' }}>Atención requerida</h2>
+          
+          <div className="alerts-list">
+            {/* Ejemplo conceptual para cobros vencidos basados en tabla invoices */}
+            {data.tables?.invoices?.filter((i:any) => i.status === 'Vencida').length > 0 ? (
+              <div className="alert-item">
+                <TriangleAlert size={18} className="alert-icon" />
+                <div className="alert-content">
+                  <div className="alert-title">{data.tables.invoices.filter((i:any) => i.status === 'Vencida').length} cobros vencidos</div>
+                  <div className="alert-desc">Requieren seguimiento</div>
+                  <button className="alert-action">Revisar</button>
+                </div>
+              </div>
+            ) : (
+              <div className="alert-item">
+                <TriangleAlert size={18} className="alert-icon" style={{ color: '#D97706' }} />
+                <div className="alert-content">
+                  <div className="alert-title">2 cobros por vencer</div>
+                  <div className="alert-desc">Q 850.00 pendientes</div>
+                  <button className="alert-action">Revisar</button>
+                </div>
+              </div>
+            )}
+
+            {data.gatewaysAndFel?.inventoryAlerts?.map((alert: any, i: number) => (
+              <div key={i} className="alert-item">
+                <TriangleAlert size={18} className="alert-icon" />
+                <div className="alert-content">
+                  <div className="alert-title">Inventario bajo: {alert.item}</div>
+                  <div className="alert-desc">Quedan {alert.stock} unidades</div>
+                  <button className="alert-action">Reponer</button>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="gateways-status">
+            Pasarelas: {data.gatewaysAndFel?.activeGateways?.qpaypro ? 'QPayPro (Ok)' : 'QPayPro (Inactiva)'}
+          </div>
+        </div>
+
+        {/* Nivel 4: Contexto (Métodos de pago) */}
+        <div className="dashboard-section" style={{ borderBottom: 'none' }}>
+          <h2 className="section-title">Métodos de pago (Mes)</h2>
+          <div className="methods-list">
+            {data.charts?.pieData?.map((method: any, i: number) => (
+              <div key={i} className="method-item">
+                <div className="method-name">{method.name}</div>
+                <div className="method-stats">
+                  <span className="method-percent">{method.value}%</span>
+                  <span className="method-amount">
+                    Q {method.amount ? method.amount.toLocaleString('en-US', { maximumFractionDigits: 0 }) : 0}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }

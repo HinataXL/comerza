@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { logger } from '../services/logger.service';
+import { sendPaymentReceiptEmail } from '../services/email.service';
 
 export const handleRelay = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -10,7 +11,16 @@ export const handleRelay = async (req: Request, res: Response): Promise<void> =>
     logger.info(`QPayPro Relay received for sale ${saleId}:`, { query: req.query, body: req.body });
 
     let sale = await prisma.sale.findUnique({
-      where: { id: saleId as string }
+      where: { id: saleId as string },
+      include: {
+        customer: true,
+        tenant: true,
+        items: {
+          include: {
+            product: true
+          }
+        }
+      }
     });
 
     if (sale) {
@@ -19,9 +29,35 @@ export const handleRelay = async (req: Request, res: Response): Promise<void> =>
           // Actualizar estado de la venta
           sale = await prisma.sale.update({
             where: { id: sale.id },
-            data: { status: 'COMPLETED' }
+            data: { status: 'COMPLETED' },
+            include: {
+              customer: true,
+              tenant: true,
+              items: {
+                include: {
+                  product: true
+                }
+              }
+            }
           });
           logger.info(`Sale ${sale.id} automatically marked as COMPLETED via QPayPro Relay`);
+          
+          if (sale.customer?.email) {
+            try {
+              await sendPaymentReceiptEmail({
+                toEmail: sale.customer.email,
+                customerName: sale.customer.name,
+                companyName: sale.tenant.name,
+                saleId: sale.id,
+                total: sale.total,
+                items: sale.items.map(i => ({ name: i.product.name, quantity: i.quantity, price: i.price })),
+                date: sale.createdAt
+              });
+              logger.info(`Payment receipt email sent for sale ${sale.id} to ${sale.customer.email}`);
+            } catch (emailError) {
+              logger.error(`Error sending payment receipt email for sale ${sale.id}:`, emailError);
+            }
+          }
         }
       } else if (x_response_status) {
         if (sale.status === 'PENDING') {

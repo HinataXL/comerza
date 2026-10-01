@@ -363,3 +363,83 @@ export const sendCronExecutionEmail = async (params: {
     logger.error('Error al enviar el correo de cron:', error);
   }
 };
+
+export const sendPaymentReceiptEmail = async (params: { 
+  toEmail: string, 
+  customerName: string, 
+  companyName: string, 
+  saleId: string,
+  total: number,
+  items: { name: string, quantity: number, price: number }[],
+  date: Date
+}) => {
+  const { toEmail, customerName, companyName, saleId, total, items, date } = params;
+  const resendApiKey = process.env.RESEND_API_KEY || '';
+  
+  if (!resendApiKey) {
+    logger.warn('RESEND_API_KEY no configurada. El recibo no se enviará.');
+    return;
+  }
+
+  const resend = new Resend(resendApiKey);
+
+  const htmlTemplate = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+      <div style="background-color: #10b981; padding: 24px; text-align: center;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Recibo de Pago Exitoso</h1>
+      </div>
+      <div style="padding: 32px; background-color: #ffffff; color: #334155;">
+        <p style="font-size: 16px;">Hola <strong>${customerName}</strong>,</p>
+        <p style="font-size: 16px; line-height: 1.5;">Hemos procesado tu pago correctamente para <strong>${companyName}</strong>.</p>
+        
+        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 24px 0; border: 1px solid #e2e8f0;">
+          <h3 style="margin-top: 0; color: #0f172a;">Detalles de la Compra:</h3>
+          <p style="margin: 8px 0;"><strong>ID de Venta:</strong> ${saleId}</p>
+          <p style="margin: 8px 0;"><strong>Fecha:</strong> ${date.toLocaleString('es-ES', { dateStyle: 'full', timeStyle: 'short' })}</p>
+          
+          <table style="width: 100%; margin-top: 16px; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 1px solid #e2e8f0;">
+                <th style="text-align: left; padding: 8px 0;">Producto</th>
+                <th style="text-align: center; padding: 8px 0;">Cant.</th>
+                <th style="text-align: right; padding: 8px 0;">Precio</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map(item => `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <td style="padding: 8px 0;">${item.name}</td>
+                  <td style="text-align: center; padding: 8px 0;">${item.quantity}</td>
+                  <td style="text-align: right; padding: 8px 0;">Q${item.price.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div style="margin-top: 16px; text-align: right; font-size: 18px;">
+            <strong>Total pagado: Q${total.toFixed(2)}</strong>
+          </div>
+        </div>
+        
+        <p style="font-size: 14px; color: #64748b;">
+          Gracias por tu compra. Si tienes alguna duda sobre este cargo, por favor contacta al comercio.
+        </p>
+      </div>
+      <div style="background-color: #f1f5f9; padding: 16px; text-align: center; color: #94a3b8; font-size: 12px;">
+        <p style="margin: 0;">&copy; ${new Date().getFullYear()} Comerza POS. Todos los derechos reservados.</p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const data = await resend.emails.send({
+      from: 'Comerza Billing <billing@comerza.me>',
+      to: [toEmail],
+      subject: `Recibo de pago - ${companyName}`,
+      html: htmlTemplate,
+    });
+    return data;
+  } catch (error) {
+    logger.error('Error al enviar el recibo de pago:', error);
+  }
+};
