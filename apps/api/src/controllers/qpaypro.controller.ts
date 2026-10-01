@@ -63,8 +63,21 @@ export const handleRelay = async (req: Request, res: Response): Promise<void> =>
         if (sale.status === 'PENDING') {
           sale = await prisma.sale.update({
             where: { id: sale.id },
-            data: { status: 'FAILED' }
+            data: { status: 'FAILED' },
+            include: {
+              customer: true,
+              tenant: true,
+              items: {
+                include: {
+                  product: true
+                }
+              }
+            }
           });
+          if (!sale) {
+            res.status(404).json({ message: 'Venta no encontrada' });
+            return;
+          }
           logger.info(`Sale ${sale.id} automatically marked as FAILED via QPayPro Relay`);
         }
       }
