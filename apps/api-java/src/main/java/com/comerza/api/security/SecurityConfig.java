@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -27,10 +28,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(AbstractHttpConfigurer::disable) // Configura CORS según tus necesidades
+            .csrf(csrf -> csrf.disable()) // Deshabilita CSRF para APIs REST
+            .cors(Customizer.withDefaults()) // Permite las reglas de CORS
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll() // Login y registro son públicos
+                .requestMatchers("/auth/**", "/api/auth/**").permitAll() // ¡Hace público el login!
                 .requestMatchers("/api/health").permitAll()
                 .requestMatchers("/api/qpaypro/relay/**").permitAll() // Webhook debe ser público
                 .requestMatchers("/api/recurrente/**").permitAll() // Webhook de Recurrente
