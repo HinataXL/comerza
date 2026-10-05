@@ -17,8 +17,7 @@ services:
       context: ./apps/api-java
       dockerfile: Dockerfile
     restart: always
-    env_file:
-      - apps/api-java/.env
+
     expose:
       - "8080"
 
