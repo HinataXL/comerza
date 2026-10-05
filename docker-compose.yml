@@ -13,13 +13,15 @@ services:
 
   api:
     build:
-      # Usamos apps/api-java porque es la carpeta real de tu backend
       context: ./apps/api-java
       dockerfile: Dockerfile
+    container_name: comerza_api
     restart: always
-
     expose:
       - "8080"
+    volumes:
+      # Montamos el archivo físico del servidor directo al contenedor
+      - ./apps/api-java/application.yml:/app/application.yml:ro
 
   proxy:
     image: nginx:alpine
