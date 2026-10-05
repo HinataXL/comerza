@@ -11,11 +11,11 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*', // Proxy to Backend API
+        destination: 'http://localhost:8080/api/:path*', // Proxy to Spring Boot Backend API
       },
       {
         source: '/uploads/:path*',
-        destination: 'http://localhost:3001/uploads/:path*', // Proxy to Backend static files
+        destination: 'http://localhost:8080/uploads/:path*', // Proxy to Spring Boot Backend static files
       }
     ];
   },

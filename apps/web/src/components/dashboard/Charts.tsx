@@ -19,15 +19,15 @@ export default function Charts({ lineData, pieData }: ChartProps) {
         <div style={{ width: '100%', height: 300 }}>
           <ResponsiveContainer>
             <LineChart data={lineData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} tickFormatter={(val) => `${val/1000}K`} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} tickFormatter={(val) => `${val/1000}K`} />
               <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-md)' }}
+                contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.08)', background: 'white', fontSize: '13px' }}
               />
-              <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', color: 'var(--text-secondary)' }} />
-              <Line type="monotone" name="Ventas (Q)" dataKey="ventas" stroke="#2563eb" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
-              <Line type="monotone" name="Cobros (Q)" dataKey="cobros" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} />
+              <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#6b7280' }} />
+              <Line type="monotone" name="Ventas (Q)" dataKey="ventas" stroke="#6366f1" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'white', stroke: '#6366f1' }} activeDot={{ r: 6 }} />
+              <Line type="monotone" name="Cobros (Q)" dataKey="cobros" stroke="#14b8a6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: 'white', stroke: '#14b8a6' }} />
             </LineChart>
           </ResponsiveContainer>
         </div>

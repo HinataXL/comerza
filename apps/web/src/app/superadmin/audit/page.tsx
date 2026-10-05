@@ -58,18 +58,16 @@ export default function SuperAdminAuditPage() {
   }
 
   return (
-    <div style={{ padding: '1.5rem', animation: 'fadeIn 0.3s' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <ShieldAlert color="#3b82f6" /> Bitácora de Auditoría
-        </h1>
-        <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
-          Registro inmutable de acciones críticas del sistema (50 más recientes).
-        </p>
-      </div>
+    <>
+      <header className="sa-header">
+        <div>
+          <h1>Bitácora de Auditoría</h1>
+          <p>Registro inmutable de acciones críticas del sistema (50 más recientes).</p>
+        </div>
+      </header>
 
-      <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
+      <div className="sa-content">
+        <div className="sa-panel" style={{ padding: 0, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -116,7 +114,15 @@ export default function SuperAdminAuditPage() {
                     </td>
                     <td style={{ padding: '1rem', fontSize: '0.75rem', color: '#475569', maxWidth: '300px' }}>
                       <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
-                        {log.details ? JSON.stringify(JSON.parse(log.details), null, 2) : '-'}
+                        {log.details ? (
+                          (() => {
+                            try {
+                              return JSON.stringify(JSON.parse(log.details), null, 2);
+                            } catch {
+                              return log.details;
+                            }
+                          })()
+                        ) : '-'}
                       </pre>
                     </td>
                   </tr>
@@ -126,7 +132,6 @@ export default function SuperAdminAuditPage() {
           </table>
         </div>
       </div>
-
-    </div>
+    </>
   );
 }

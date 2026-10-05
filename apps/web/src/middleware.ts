@@ -21,7 +21,7 @@ export function middleware(request: NextRequest) {
 
   // Lógica original de protección de rutas (Dashboard y Superadmin)
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/superadmin')) {
-    const token = request.cookies.get('token');
+    const token = request.cookies.get('comerza_token');
 
     if (!token) {
       const loginUrl = new URL('/login', request.url);

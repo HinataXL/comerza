@@ -7,15 +7,16 @@ type DialogType = 'info' | 'success' | 'warning' | 'error';
 
 interface DialogOptions {
   title: string;
-  message: string;
+  message: string | ReactNode;
   type?: DialogType;
   onConfirm?: () => void;
   isConfirm?: boolean;
 }
 
 interface DialogContextProps {
-  showAlert: (title: string, message: string, type?: DialogType) => void;
-  showConfirm: (title: string, message: string, onConfirm: () => void, type?: DialogType) => void;
+  showAlert: (title: string, message: string | ReactNode, type?: DialogType) => void;
+  showConfirm: (title: string, message: string | ReactNode, onConfirm: () => void, type?: DialogType) => void;
+  closeDialog: () => void;
 }
 
 const DialogContext = createContext<DialogContextProps | undefined>(undefined);
@@ -37,12 +38,12 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     isConfirm: false,
   });
 
-  const showAlert = (title: string, message: string, type: DialogType = 'info') => {
+  const showAlert = (title: string, message: string | ReactNode, type: DialogType = 'info') => {
     setDialogState({ title, message, type, isConfirm: false });
     setIsOpen(true);
   };
 
-  const showConfirm = (title: string, message: string, onConfirm: () => void, type: DialogType = 'warning') => {
+  const showConfirm = (title: string, message: string | ReactNode, onConfirm: () => void, type: DialogType = 'warning') => {
     setDialogState({ title, message, type, isConfirm: true, onConfirm });
     setIsOpen(true);
   };
@@ -76,7 +77,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DialogContext.Provider value={{ showAlert, showConfirm }}>
+    <DialogContext.Provider value={{ showAlert, showConfirm, closeDialog }}>
       {children}
       {isOpen && (
         <div className="modal-overlay" style={{ zIndex: 9999 }}>
@@ -98,12 +99,8 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                       Cancelar
                     </button>
                     <button 
-                      className="btn" 
-                      style={{ 
-                        flex: 1, 
-                        backgroundColor: dialogState.type === 'error' ? 'var(--error)' : 'var(--primary)',
-                        color: 'white' 
-                      }} 
+                      className={`btn ${dialogState.type === 'error' ? 'btn-error' : 'btn-primary'}`}
+                      style={{ flex: 1 }} 
                       onClick={handleConfirm}
                     >
                       Aceptar

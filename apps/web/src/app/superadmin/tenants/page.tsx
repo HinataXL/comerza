@@ -58,6 +58,20 @@ export default function SuperAdminTenants() {
     }
   };
 
+  const toggleTallerAddon = async (tenantId: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch(`/api/superadmin/tenants/${tenantId}/taller`, {
+        method: 'PATCH',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        setTenants(tenants.map(t => t.id === tenantId ? { ...t, hasTallerAddon: !currentStatus } : t));
+      }
+    } catch (err) {
+      console.error('Error toggling taller addon', err);
+    }
+  };
+
   const impersonate = async (tenantId: string) => {
     try {
       const res = await fetch(`/api/superadmin/tenants/${tenantId}/impersonate`, {
@@ -162,20 +176,22 @@ export default function SuperAdminTenants() {
   if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>Cargando comercios...</div>;
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#1e293b', margin: 0 }}>Gestión de Comercios</h2>
-        
+    <>
+      <header className="sa-header">
+        <div>
+          <h1>Gestión de Comercios</h1>
+          <p>Directorio de inquilinos y control de acceso maestro.</p>
+        </div>
         <button 
-          className="btn btn-primary" 
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          style={{ padding: '0.75rem 1.5rem', background: '#111827', color: '#FFFFFF', border: '2px solid #111827', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           onClick={() => setIsModalOpen(true)}
         >
-          <Plus size={18} /> Nuevo Comercio
+          <Plus size={18} /> NUEVO COMERCIO
         </button>
-      </div>
+      </header>
 
-      <div className="card" style={{ padding: '1.5rem 0' }}>
+      <div className="sa-content">
+        <div className="sa-panel" style={{ padding: 0 }}>
         <div style={{ padding: '0 1.5rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
           <div className="search-container" style={{ width: '300px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.5rem', display: 'flex', alignItems: 'center' }}>
             <Search size={18} color="#94a3b8" />
@@ -191,7 +207,7 @@ export default function SuperAdminTenants() {
           <thead>
             <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.875rem' }}>
               <th style={{ padding: '1rem 1.5rem' }}>Nombre del Comercio</th>
-              <th style={{ padding: '1rem' }}>Plantilla</th>
+              <th style={{ padding: '1rem' }}>Plantilla / Addons</th>
               <th style={{ padding: '1rem' }}>Plan</th>
               <th style={{ padding: '1rem' }}>Usuarios</th>
               <th style={{ padding: '1rem' }}>Ventas Registradas</th>
@@ -210,9 +226,32 @@ export default function SuperAdminTenants() {
                   {t.name}
                 </td>
                 <td style={{ padding: '1rem', color: '#64748b' }}>
-                  <span style={{ padding: '0.25rem 0.5rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.75rem' }}>
-                    {t.receiptTemplate}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <span style={{ padding: '0.25rem 0.5rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.75rem', width: 'fit-content' }}>
+                      {t.receiptTemplate}
+                    </span>
+                    <button 
+                      onClick={() => toggleTallerAddon(t.id, t.hasTallerAddon)}
+                      title="Activar/Desactivar Addon Taller"
+                      style={{
+                        background: t.hasTallerAddon ? '#eff6ff' : '#f8fafc',
+                        color: t.hasTallerAddon ? '#3b82f6' : '#94a3b8',
+                        border: t.hasTallerAddon ? '1px solid #bfdbfe' : '1px dashed #cbd5e1',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        width: 'fit-content',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}
+                    >
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: t.hasTallerAddon ? '#3b82f6' : '#cbd5e1' }}></div>
+                      Comerza Taller
+                    </button>
+                  </div>
                 </td>
                 <td style={{ padding: '1rem' }}>
                   <button 
@@ -282,6 +321,7 @@ export default function SuperAdminTenants() {
             )}
           </tbody>
         </table>
+      </div>
       </div>
 
       {/* Modal Crear Comercio */}
@@ -410,6 +450,6 @@ export default function SuperAdminTenants() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

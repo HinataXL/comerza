@@ -51,18 +51,16 @@ export default function SuperadminNotificationsPage() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-color)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <BellRing size={24} className="text-primary" />
-          Enviar Notificación Global
-        </h2>
-        <p className="text-secondary" style={{ marginTop: '0.5rem' }}>
-          Crea una notificación que aparecerá en la campana de todos los comercios activos. Esta notificación se mantendrá vigente por 12 horas antes de desaparecer automáticamente.
-        </p>
-      </div>
-
-      <div style={{ background: 'white', borderRadius: '12px', padding: '2rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+    <>
+      <header className="sa-header">
+        <div>
+          <h1>Enviar Notificación Global</h1>
+          <p>Crea una notificación que aparecerá en la campana de todos los comercios activos. Desaparece en 12h.</p>
+        </div>
+      </header>
+      
+      <div className="sa-content" style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div className="sa-panel">
         <form onSubmit={handleSendNotification}>
           <div className="form-group">
             <label className="form-label">Título de la Notificación</label>
@@ -166,7 +164,8 @@ export default function SuperadminNotificationsPage() {
             </button>
           </div>
         </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

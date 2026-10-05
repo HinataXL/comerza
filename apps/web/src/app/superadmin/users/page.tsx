@@ -131,55 +131,32 @@ export default function SuperAdminUsersPage() {
   }
 
   return (
-    <div style={{ padding: '1.5rem', animation: 'fadeIn 0.3s' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
+    <>
+      <header className="sa-header">
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: '#0f172a', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Users color="#3b82f6" /> Usuarios Registrados
-          </h1>
-          <p style={{ color: '#64748b', fontSize: '0.875rem' }}>
-            Directorio completo de administradores de comercios y superadmins.
-          </p>
+          <h1>Usuarios Registrados</h1>
+          <p>Directorio completo de administradores de comercios y superadmins.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
-          style={{ 
-            backgroundColor: '#0f172a', 
-            color: 'white', 
-            border: 'none', 
-            padding: '0.6rem 1.2rem', 
-            borderRadius: '8px', 
-            fontWeight: 500,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            fontSize: '0.875rem'
-          }}
+          style={{ padding: '0.75rem 1.5rem', background: '#111827', color: '#FFFFFF', border: '2px solid #111827', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
         >
-          <Plus size={18} /> Nuevo Superadmin
+          <Plus size={18} /> NUEVO SUPERADMIN
         </button>
-      </div>
+      </header>
 
-      <div style={{ marginBottom: '1.5rem' }}>
-        <input 
-          type="text" 
-          placeholder="Buscar por nombre, correo o comercio..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ 
-            width: '100%', 
-            maxWidth: '400px', 
-            padding: '0.75rem 1rem', 
-            borderRadius: '8px', 
-            border: '1px solid #cbd5e1', 
-            fontSize: '0.875rem' 
-          }}
-        />
-      </div>
-
-      <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
+      <div className="sa-content">
+        <div className="sa-panel" style={{ padding: 0 }}>
+          <div style={{ padding: '1.5rem', borderBottom: '2px solid #111827' }}>
+            <input 
+              type="text" 
+              placeholder="Buscar por nombre, correo o comercio..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ width: '100%', maxWidth: '400px', padding: '0.75rem 1rem', border: '2px solid #111827', fontSize: '0.875rem', outline: 'none' }}
+            />
+          </div>
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -249,6 +226,7 @@ export default function SuperAdminUsersPage() {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
 
       {/* Modal Crear Superadmin */}
@@ -353,6 +331,6 @@ export default function SuperAdminUsersPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

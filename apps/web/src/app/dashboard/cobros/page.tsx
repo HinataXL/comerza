@@ -3,6 +3,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Zap, Link as LinkIcon, Check, CheckCircle, MessageCircle, Clock, Copy, AlertCircle } from 'lucide-react';
 import { useDialog } from '@/components/providers/DialogProvider';
+import { formatIntegrationError } from '@/lib/formatters';
 import './cobros.css';
 
 interface Sale {
@@ -20,7 +21,7 @@ interface Sale {
 
 function CobrosContent() {
   const router = useRouter();
-  const { showAlert, showConfirm } = useDialog();
+  const { showAlert, showConfirm, closeDialog } = useDialog();
   const searchParams = useSearchParams();
   const paymentStatus = searchParams.get('payment');
   
@@ -101,7 +102,29 @@ function CobrosContent() {
         fetchPendingSales(); // Refresh pending list
       }
     } catch (error: any) {
-      showAlert('Error', error.message, 'error');
+      const friendlyMessage = formatIntegrationError(error.message);
+      
+      let messageContent: React.ReactNode = friendlyMessage;
+      if (typeof friendlyMessage === 'string' && friendlyMessage.toLowerCase().includes('qpaypro')) {
+        messageContent = (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
+            <span>{friendlyMessage}</span>
+            <button 
+              type="button"
+              className="btn btn-outline"
+              style={{ fontSize: '0.85rem', width: '100%' }}
+              onClick={() => {
+                closeDialog();
+                router.push('/dashboard/integraciones');
+              }}
+            >
+              Ir a Integraciones
+            </button>
+          </div>
+        );
+      }
+
+      showAlert('Error', messageContent, 'error');
     } finally {
       setIsGenerating(false);
     }
@@ -112,7 +135,7 @@ function CobrosContent() {
       setIsUpdating(id);
       try {
         const res = await fetch(`/api/sales/${id}/status`, {
-          method: 'PATCH',
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ status: 'COMPLETED' })

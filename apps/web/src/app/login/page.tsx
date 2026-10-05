@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Mail, Lock, Eye, EyeOff, Zap } from 'lucide-react';
 import './login.css';
 
 export default function LoginPage() {
@@ -18,8 +18,6 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setErrorMsg('');
-    setSuccessMsg('');
-    
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -27,20 +25,14 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
         credentials: 'include',
       });
-      
       const data = await res.json();
-      
       if (res.ok) {
-        // Redirigir según el rol
-        if (data.user?.role === 'SUPERADMIN') {
-          router.push('/superadmin');
-        } else {
-          router.push('/dashboard');
-        }
+        if (data.token) document.cookie = `comerza_token=${data.token}; path=/; max-age=86400`;
+        router.push(data.role === 'SUPERADMIN' ? '/superadmin' : '/dashboard');
       } else {
         setErrorMsg(data.message || 'El correo o la contraseña no son correctos.');
       }
-    } catch (error) {
+    } catch {
       setErrorMsg('No pudimos conectarnos. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
@@ -52,27 +44,20 @@ export default function LoginPage() {
     setIsLoading(true);
     setErrorMsg('');
     setSuccessMsg('');
-    
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      
       const data = await res.json();
-      
       if (res.ok) {
-        setSuccessMsg(data.message || 'Te hemos enviado instrucciones a tu correo.');
-        setTimeout(() => {
-          setIsForgotPassword(false);
-          setSuccessMsg('');
-          setPassword('');
-        }, 5000);
+        setSuccessMsg(data.message || 'Revisa tu correo — enviamos un enlace de acceso.');
+        setTimeout(() => { setIsForgotPassword(false); setSuccessMsg(''); setPassword(''); }, 6000);
       } else {
-        setErrorMsg(data.message || 'Error al restablecer la contraseña.');
+        setErrorMsg(data.message || 'No encontramos esa cuenta.');
       }
-    } catch (error) {
+    } catch {
       setErrorMsg('No pudimos conectarnos. Intenta nuevamente.');
     } finally {
       setIsLoading(false);
@@ -80,146 +65,144 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="login-page-wrapper">
-      
-      <div className="login-brand-panel">
-        <div>
-          <div className="login-logo">COMERZA</div>
-        </div>
-        <div className="login-brand-text">
-          Tu negocio,<br />
-          en un solo lugar.
-        </div>
-      </div>
+    <div className="login-page">
+      <div className="login-container">
+        
+        {/* Left Panel: The Form */}
+        <div className="login-left">
+          <div className="login-logo-mark">
+            <span className="login-logo-text">COMER<span>ZA</span></span>
+          </div>
 
-      <div className="login-form-panel">
-        <div className="login-form-container">
-          
-          <h1 className="login-title">
-            {isForgotPassword ? 'Recuperar contraseña' : 'Iniciar sesión'}
-          </h1>
-          
+          <div className="login-card-header">
+            <h1 className="login-card-title">
+              {isForgotPassword ? 'Recuperar acceso' : 'LOGIN'}
+            </h1>
+            <p className="login-card-subtitle">
+              {isForgotPassword
+                ? 'Ingresa tu correo para recibir las instrucciones de recuperación.'
+                : '¿Cómo empiezo? Ingresa tus credenciales aquí.'}
+            </p>
+          </div>
+
           {isForgotPassword ? (
             <form className="login-form" onSubmit={handleForgotPassword}>
-              <p style={{ color: '#6B7280', fontSize: '0.875rem', marginTop: '-1rem' }}>
-                Ingresa tu correo electrónico y te enviaremos instrucciones para acceder.
-              </p>
-
-              <div className="input-group">
-                <label htmlFor="email">Correo electrónico</label>
+              <div className="login-input-group">
+                <label className="login-label" htmlFor="email-forgot">Correo electrónico</label>
                 <div className="login-input-wrapper">
-                  <input 
-                    type="email" 
-                    id="email"
+                  <span className="login-input-icon"><Mail size={18} /></span>
+                  <input
+                    type="email"
+                    id="email-forgot"
+                    className="login-input"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu@empresa.com" 
-                    required 
+                    placeholder="tu@empresa.com"
+                    required
+                    autoFocus
                   />
                 </div>
               </div>
 
-              {errorMsg && (
-                <div className="form-message error">{errorMsg}</div>
-              )}
-              
-              {successMsg && (
-                <div className="form-message success">{successMsg}</div>
-              )}
+              {errorMsg && <div className="login-error">{errorMsg}</div>}
+              {successMsg && <div className="login-success">{successMsg}</div>}
 
-              <button className="login-submit-btn" type="submit" disabled={isLoading}>
-                {isLoading ? (
-                  <><Loader2 size={18} className="animate-spin" /> Procesando...</>
-                ) : (
-                  'Enviar instrucciones'
-                )}
+              <button className="login-btn" type="submit" disabled={isLoading}>
+                {isLoading
+                  ? <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Enviando...</>
+                  : 'Enviar enlace'}
               </button>
 
-              <div style={{ marginTop: '0.5rem' }}>
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setIsForgotPassword(false);
-                    setErrorMsg('');
-                    setSuccessMsg('');
-                  }}
-                  style={{ background: 'none', border: 'none', color: '#111827', fontSize: '0.875rem', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
-                >
-                  Volver a iniciar sesión
-                </button>
-              </div>
+              <button type="button" className="login-back-btn"
+                onClick={() => { setIsForgotPassword(false); setErrorMsg(''); setSuccessMsg(''); }}>
+                ← Volver al login
+              </button>
             </form>
           ) : (
             <form className="login-form" onSubmit={handleLogin}>
-              
-              <div className="input-group">
-                <label htmlFor="email">Correo electrónico</label>
+              <div className="login-input-group">
+                <label className="login-label" htmlFor="email">Usuario / Correo</label>
                 <div className="login-input-wrapper">
-                  <input 
-                    type="email" 
+                  <span className="login-input-icon"><Mail size={18} /></span>
+                  <input
+                    type="email"
                     id="email"
+                    className="login-input"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="tu@empresa.com" 
-                    required 
+                    placeholder="Usuario"
+                    required
+                    autoFocus
                   />
                 </div>
               </div>
 
-              <div className="input-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <label htmlFor="password">Contraseña</label>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setIsForgotPassword(true);
-                      setErrorMsg('');
-                      setSuccessMsg('');
-                    }}
-                    className="forgot-password-link"
-                    tabIndex={-1}
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </button>
-                </div>
+              <div className="login-input-group">
+                <label className="login-label" htmlFor="password">Contraseña</label>
                 <div className="login-input-wrapper">
-                  <input 
-                    className="has-icon"
+                  <span className="login-input-icon"><Lock size={18} /></span>
+                  <input
                     type={showPassword ? 'text' : 'password'}
                     id="password"
+                    className="login-input"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••" 
-                    required 
+                    placeholder="Contraseña"
+                    required
                   />
-                  <button 
-                    type="button" 
-                    className="password-toggle"
+                  <button
+                    type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    className="login-eye-btn"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
 
-              {errorMsg && (
-                <div className="form-message error">{errorMsg}</div>
-              )}
+              <div className="login-forgot-row">
+                <span />
+                <button
+                  type="button"
+                  className="login-forgot-link"
+                  onClick={() => { setIsForgotPassword(true); setErrorMsg(''); }}
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
 
-              <button className="login-submit-btn" type="submit" disabled={isLoading}>
-                {isLoading ? (
-                  <><Loader2 size={18} className="animate-spin" /> Iniciando sesión...</>
-                ) : (
-                  'Iniciar sesión'
-                )}
+              {errorMsg && <div className="login-error">{errorMsg}</div>}
+
+              <button className="login-btn" type="submit" disabled={isLoading}>
+                {isLoading
+                  ? <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Cargando...</>
+                  : 'Login Now'}
               </button>
             </form>
           )}
-
         </div>
-      </div>
 
+        {/* Right Panel: The Illustration */}
+        <div className="login-right">
+          <div className="login-shape-1"></div>
+          <div className="login-shape-2"></div>
+          
+          <div className="login-glass-panel">
+            {/* The little yellow zap badge from the reference */}
+            <div className="login-badge">
+              <Zap size={24} fill="#fbbf24" />
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src="/login-illustration.jpg" 
+              alt="Dashboard Illustration" 
+              className="login-illustration"
+            />
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 }

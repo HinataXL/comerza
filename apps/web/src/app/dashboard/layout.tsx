@@ -1,24 +1,24 @@
+'use client';
+import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
-
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Dashboard',
-};
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
     <div className="layout-container">
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="main-content">
-        <Topbar />
+        <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
         <main className="page-content">
-          {children}
+          <div className="page-inner">
+            {children}
+          </div>
         </main>
       </div>
     </div>
