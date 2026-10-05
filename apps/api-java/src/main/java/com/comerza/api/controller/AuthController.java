@@ -2,10 +2,16 @@ package com.comerza.api.controller;
 
 import com.comerza.api.controller.dto.AuthRequest;
 import com.comerza.api.controller.dto.AuthResponse;
+import com.comerza.api.controller.dto.ForgotPasswordRequest;
+import com.comerza.api.controller.dto.ResetPasswordRequest;
 import com.comerza.api.entity.User;
 import com.comerza.api.repository.UserRepository;
 import com.comerza.api.security.JwtService;
 import com.comerza.api.security.UserDetailsImpl;
+import java.time.LocalDateTime;
+import java.util.UUID;
+import java.util.Optional;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,10 +31,52 @@ public class AuthController {
     private final UserRepository userRepository;
     private final com.comerza.api.repository.PlanConfigRepository planConfigRepository;
     private final JwtService jwtService;
+    private final com.comerza.api.service.EmailService emailService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url:https://comerza.me}")
+    private String frontendUrl;
 
     @GetMapping("/debug/features")
     public ResponseEntity<?> debugFeatures() {
         return ResponseEntity.ok(planConfigRepository.findAll());
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            String token = UUID.randomUUID().toString();
+            user.setResetPasswordToken(token);
+            user.setResetPasswordTokenExpiry(LocalDateTime.now().plusHours(1));
+            userRepository.save(user);
+
+            String resetLink = frontendUrl + "/reset-password?token=" + token;
+            emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+        }
+        return ResponseEntity.ok(Map.of("message", "Si el correo existe, se ha enviado un enlace de recuperación."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request) {
+        Optional<User> userOpt = userRepository.findByResetPasswordToken(request.getToken());
+        
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Token inválido o expirado."));
+        }
+
+        User user = userOpt.get();
+        if (user.getResetPasswordTokenExpiry() == null || user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Token inválido o expirado."));
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setResetPasswordToken(null);
+        user.setResetPasswordTokenExpiry(null);
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of("message", "Contraseña restablecida exitosamente."));
     }
 
     @PostMapping("/login")

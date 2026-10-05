@@ -38,6 +38,15 @@ public class EmailService {
         sendResendEmail(sale.getCustomer().getEmail(), subject, htmlBody);
     }
 
+    public void sendPasswordResetEmail(String toEmail, String resetLink) {
+        log.info("Preparing password reset email for {}", toEmail);
+        String subject = "Recuperación de Contraseña - Comerza";
+        String htmlBody = "<p>Hola,</p><p>Has solicitado restablecer tu contraseña en Comerza. Haz clic en el siguiente enlace para crear una nueva contraseña:</p>"
+                + "<p><a href=\"" + resetLink + "\">Restablecer mi contraseña</a></p>"
+                + "<p>Si no solicitaste este cambio, puedes ignorar este correo.</p>";
+        sendResendEmail(toEmail, subject, htmlBody);
+    }
+
     public void sendReservationEmail(com.comerza.api.entity.Reservation reservation, String frontendBaseUrl) {
         log.info("Preparing reservation email for reservation {} to {}", reservation.getId(), reservation.getCustomer().getEmail());
         String subject = "📅 Tu reservación está confirmada - " + reservation.getTenant().getName();
