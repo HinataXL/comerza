@@ -251,7 +251,7 @@ export default function ReservaPage() {
                 📆 Solicitar nuevo horario
               </button>
 
-              {reservation?.status !== 'CANCELLED' && (
+              {(reservation?.status as string) !== 'CANCELLED' && (
                 <button
                   className="action-btn reject"
                   onClick={() => handleAction('reject')}
