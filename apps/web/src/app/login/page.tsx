@@ -25,12 +25,18 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
         credentials: 'include',
       });
-      const data = await res.json();
+      const data = res.ok
+        ? await res.json()
+        : await res.json().catch(() => ({}));
       if (res.ok) {
         if (data.token) document.cookie = `comerza_token=${data.token}; path=/; max-age=86400`;
         router.push(data.role === 'SUPERADMIN' ? '/superadmin' : '/dashboard');
       } else {
-        setErrorMsg(data.message || 'El correo o la contraseña no son correctos.');
+        if (res.status === 401 || res.status === 403) {
+          setErrorMsg(data.message || 'El correo o la contraseña no son correctos.');
+        } else {
+          setErrorMsg('El servicio de acceso no está disponible. Intenta nuevamente más tarde.');
+        }
       }
     } catch {
       setErrorMsg('No pudimos conectarnos. Intenta nuevamente.');
