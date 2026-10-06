@@ -6,6 +6,7 @@ import { ShoppingCart, Search, Trash2, Plus, Minus, CreditCard, User, Link as Li
 import { useDialog } from '@/components/providers/DialogProvider';
 import { formatIntegrationError } from '@/lib/formatters';
 import styles from './page.module.css';
+import Script from 'next/script';
 
 interface Product {
   id: string;
@@ -55,6 +56,8 @@ export default function VentasClient({
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [claveCheckoutUrl, setClaveCheckoutUrl] = useState<string | null>(null);
+  const [claveSaleId, setClaveSaleId] = useState<string | null>(null);
   
   const [isNfcWaiting, setIsNfcWaiting] = useState(false);
   const [nfcSaleId, setNfcSaleId] = useState<string | null>(null);
@@ -142,6 +145,43 @@ export default function VentasClient({
     return () => clearInterval(interval);
   }, [isNfcWaiting, nfcSaleId, showAlert]);
 
+  useEffect(() => {
+    if (claveCheckoutUrl && typeof window !== 'undefined' && (window as any).Clave) {
+      (window as any).Clave.button("#clave-button", {
+        url: claveCheckoutUrl,
+        onReady: (event: any) => {
+          console.log('Clave button ready', event);
+        },
+        onSuccess: async (event: any) => {
+          if (claveSaleId && event.checkoutId) {
+            try {
+              await fetch(`/api/sales/${claveSaleId}/verify-clave?checkoutId=${event.checkoutId}`, { 
+                method: 'POST',
+                credentials: 'include' 
+              });
+            } catch (e) {
+              console.error('Error verifying clave checkout:', e);
+            }
+          }
+          showAlert('Pago Exitoso', 'El pago con Clave se completó.', 'success');
+          setClaveCheckoutUrl(null);
+          setClaveSaleId(null);
+        },
+        onCancel: () => {
+          showAlert('Pago Cancelado', 'Se canceló el pago con Clave.', 'warning');
+          setClaveCheckoutUrl(null);
+          setClaveSaleId(null);
+        },
+        onFailure: (event: any) => {
+          console.warn('Clave error', event.message);
+          showAlert('Error', 'No se pudo cargar Clave.', 'error');
+          setClaveCheckoutUrl(null);
+          setClaveSaleId(null);
+        }
+      });
+    }
+  }, [claveCheckoutUrl, claveSaleId]);
+
   const handleCheckout = async () => {
     if (activeMode === 'cart' && cart.length === 0) return;
     if (activeMode === 'quick' && (!quickAmount || parseFloat(quickAmount) <= 0 || !quickDescription)) {
@@ -191,6 +231,18 @@ export default function VentasClient({
         setQuickAmount('');
         setQuickDescription('');
         refreshProducts();
+        return;
+      }
+
+      if (paymentMethod === 'Recurrente Clave') {
+        if (data.paymentLink) {
+          setClaveSaleId(data.id);
+          setClaveCheckoutUrl(data.paymentLink);
+          setCart([]);
+          setQuickAmount('');
+          setQuickDescription('');
+          refreshProducts();
+        }
         return;
       }
 
@@ -418,6 +470,7 @@ export default function VentasClient({
                   <>
                     <option value="Link de pago">Link de Pago (QPayPro)</option>
                     <option value="Recurrente NFC">Terminal NFC (Recurrente)</option>
+                    <option value="Recurrente Clave">Pagar con ⚡ Clave</option>
                   </>
                 )}
               </select>
@@ -438,6 +491,20 @@ export default function VentasClient({
           </div>
         </div>
       </div>
+
+      <Script src="https://app.recurrente.com/clave/v1/clave.js" strategy="lazyOnload" />
+
+      {claveCheckoutUrl && (
+        <div className="modal-overlay" style={{ backdropFilter: 'blur(4px)', backgroundColor: 'rgba(15, 23, 42, 0.4)' }}>
+          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center', padding: '2rem', borderRadius: '12px' }}>
+            <h3 style={{ marginBottom: '1.5rem' }}>Pagar con Clave</h3>
+            <div id="clave-button" style={{ marginBottom: '1.5rem', width: '100%', minHeight: '48px' }}></div>
+            <button className="btn btn-outline" style={{ width: '100%' }} onClick={() => setClaveCheckoutUrl(null)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {generatedLink && (
         <div className="modal-overlay">

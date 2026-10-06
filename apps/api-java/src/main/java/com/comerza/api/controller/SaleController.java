@@ -55,4 +55,14 @@ public class SaleController {
         sale.setStatus(request.getStatus());
         return ResponseEntity.ok(saleRepository.save(sale));
     }
+
+    @PostMapping("/{id}/verify-clave")
+    public ResponseEntity<?> verifyClaveCheckout(@PathVariable String id, @RequestParam String checkoutId, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            Sale sale = saleService.verifyClaveCheckout(id, checkoutId, userDetails.getUser().getTenant().getId());
+            return ResponseEntity.ok(sale);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+    }
 }

@@ -25,6 +25,9 @@ public class SaleService {
     private final QPayProService qpayproService;
     private final RecurrenteService recurrenteService;
 
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url:https://comerza.me}")
+    private String frontendUrl;
+
     @Transactional
     public Sale createSale(String tenantId, User user, SaleRequest request) {
         Tenant tenant = tenantRepository.findById(tenantId)
@@ -45,7 +48,10 @@ public class SaleService {
         sale.setUser(user);
         if (customer != null) sale.setCustomer(customer);
         sale.setPaymentMethod(request.getPaymentMethod());
-        sale.setStatus("Link de pago".equals(request.getPaymentMethod()) || "Recurrente NFC".equals(request.getPaymentMethod()) ? "PENDING" : "COMPLETED");
+        boolean isPendingPayment = "Link de pago".equals(request.getPaymentMethod()) || 
+                                   "Recurrente NFC".equals(request.getPaymentMethod()) || 
+                                   "Recurrente Clave".equals(request.getPaymentMethod());
+        sale.setStatus(isPendingPayment ? "PENDING" : "COMPLETED");
         sale.setTotal(0.0); // Prevenir el error de constraint not-null en la BD
         
         sale = saleRepository.save(sale); // Guardar para obtener ID
@@ -102,8 +108,53 @@ public class SaleService {
                     tenant.getRecurrenteSecretKey(), tenant.getRecurrenteTerminalId(),
                     total, sale.getId()
             );
+        } else if ("Recurrente Clave".equals(request.getPaymentMethod())) {
+            if (tenant.getRecurrenteSecretKey() == null) {
+                throw new RuntimeException("La llave secreta de Recurrente no está configurada.");
+            }
+            Map<String, Object> response = recurrenteService.createCheckout(
+                    tenant.getRecurrenteSecretKey(),
+                    total,
+                    sale.getId(),
+                    frontendUrl + "/dashboard/ventas?success=true", // Example success URL
+                    frontendUrl + "/dashboard/ventas?cancel=true"   // Example cancel URL
+            );
+            System.out.println("Recurrente Checkout Response: " + response);
+            if (response != null && response.containsKey("checkout_url")) {
+                sale.setPaymentLink((String) response.get("checkout_url"));
+            } else {
+                System.out.println("No checkout_url found in Recurrente response!");
+            }
         }
 
         return saleRepository.save(sale);
+    }
+
+    @Transactional
+    public Sale verifyClaveCheckout(String saleId, String checkoutId, String tenantId) {
+        Sale sale = saleRepository.findById(saleId)
+                .orElseThrow(() -> new RuntimeException("Sale not found"));
+                
+        if (!sale.getTenant().getId().equals(tenantId)) {
+            throw new RuntimeException("Acceso denegado");
+        }
+
+        if (!"PENDING".equals(sale.getStatus())) {
+            return sale; // Ya está procesada
+        }
+
+        Tenant tenant = sale.getTenant();
+        if (tenant.getRecurrenteSecretKey() == null) {
+            throw new RuntimeException("La llave secreta de Recurrente no está configurada.");
+        }
+
+        Map<String, Object> response = recurrenteService.verifyCheckout(tenant.getRecurrenteSecretKey(), checkoutId);
+        
+        if (response != null && "paid".equals(response.get("status"))) {
+            sale.setStatus("COMPLETED");
+            return saleRepository.save(sale);
+        }
+
+        return sale;
     }
 }
