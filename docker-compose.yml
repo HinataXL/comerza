@@ -8,6 +8,9 @@ services:
     restart: always
     env_file:
       - apps/web/.env
+    environment:
+      # Las páginas de Next.js consultan al backend desde el contenedor web.
+      JAVA_API_BASE_URL: http://api:8080
     expose:
       - "3000"
 
