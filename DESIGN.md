@@ -80,3 +80,26 @@ Los botones de edición se deshabilitan durante el guardado y tras la autorizaci
 Conservar los datos al fallar una petición. Mostrar descuentos como importes en Q,
 sin inferir tasas fiscales. No alterar una cotización aprobada ni enviar cambios
 que todavía no se han guardado. No rediseñar otras pantallas para este módulo.
+
+## Dashboard de Taller — referencia aprobada
+
+El usuario seleccionó el dashboard de Taller para implementar el nodo `12070:1629`
+del archivo Figma `9SbcKgQyzorMvpq92de1Pt` (Dashboard / 04). La composición usa un
+riel de navegación de 84 px, un resumen lateral de 389 px y cuatro tarjetas de
+440 px en dos columnas con separación de 28 px. Las medidas se adaptan en móvil.
+Los controles Resumen/Tablero mantienen disponible la gestión de etapas existente.
+
+Esta variante se aplica exclusivamente en `/dashboard/taller`. La fuente de sus
+tokens es `apps/web/src/app/dashboard/taller/taller-dashboard.css`, bajo
+`.taller-dashboard-shell`: `--taller-base` #f5f5fa, `--taller-surface` #ffffff,
+`--taller-text` #1c1d21, `--taller-blue` #5e81f4 y `--taller-border` #ececf2.
+`--taller-muted` usa #686888 para mejorar el contraste de texto pequeño respecto a
+la referencia. Los gráficos usan azul #5e81f4, verde #7ce7ac, ámbar #f4be5e y rosa
+#ff808b. Lato se carga mediante `next/font` y `--font-taller`; el radio de las
+tarjetas es 12 px. La cotización y las demás rutas conservan sus tokens originales.
+
+El logotipo C se descarga del recurso original de Figma en
+`apps/web/public/figma/taller/craft-logo.svg`: ocupa los lugares de 30 y 98 px de la
+referencia. Las gráficas, nombres y actividad se generan con datos de las órdenes,
+sin imágenes estáticas de gráficos, fotografías de ejemplo ni importes ficticios.
+El resumen distingue el valor cotizado/autorizado de pagos efectivamente recibidos.

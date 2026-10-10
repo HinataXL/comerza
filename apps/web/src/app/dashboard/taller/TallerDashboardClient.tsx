@@ -1,234 +1,591 @@
 'use client';
-import { useState } from 'react';
-import { WorkOrder } from '@/types/taller';
-import WorkOrderStatusBadge, { statusMap } from './components/WorkOrderStatusBadge';
-import { Car, ClipboardList, CheckCircle2, AlertCircle, Wrench, Clock, Search, User } from 'lucide-react';
+
+import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+} from 'recharts';
+import {
+  CalendarDays,
+  Car,
+  CheckCheck,
+  ClipboardList,
+  Clock3,
+  LayoutGrid,
+  List,
+  RefreshCw,
+  Wrench,
+} from 'lucide-react';
+import type { WorkOrder } from '@/types/taller';
+import { statusMap } from './components/WorkOrderStatusBadge';
+import TallerOrderBoard from './components/TallerOrderBoard';
+import {
+  chartSeries,
+  money,
+  orderAmount,
+  periodLabels,
+  periodOrders,
+  stateGroups,
+  sumAmounts,
+  type DashboardPeriod,
+} from './dashboard-data';
 
-export default function TallerDashboardClient({ initialOrders, token }: { initialOrders: WorkOrder[], token: string }) {
-  const [orders, setOrders] = useState<WorkOrder[]>(initialOrders);
-  
-  const activeOrders = orders.filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED');
-  const readyOrders = orders.filter(o => o.status === 'READY');
-  const inRepairOrders = orders.filter(o => o.status === 'IN_REPAIR');
-  const waitingOrders = orders.filter(o => o.status === 'WAITING_APPROVAL');
-  
-  const columns = ['RECEIVED', 'DIAGNOSIS', 'WAITING_APPROVAL', 'IN_REPAIR', 'QUALITY_CONTROL', 'READY'] as const;
+function PeriodControl({
+  value,
+  onChange,
+  label,
+}: {
+  value: DashboardPeriod;
+  onChange: (value: DashboardPeriod) => void;
+  label: string;
+}) {
+  return (
+    <div className="taller-period" role="group" aria-label={label}>
+      {(Object.keys(periodLabels) as DashboardPeriod[]).map((period) => (
+        <button
+          key={period}
+          type="button"
+          aria-pressed={value === period}
+          onClick={() => onChange(period)}
+        >
+          {periodLabels[period]}
+        </button>
+      ))}
+      <Link
+        href="/dashboard/taller/ordenes"
+        className="taller-calendar"
+        aria-label="Consultar órdenes"
+        title="Consultar órdenes"
+      >
+        <CalendarDays size={16} />
+      </Link>
+    </div>
+  );
+}
 
-  // Drag & Drop Handlers
-  const handleDragStart = (e: React.DragEvent, orderId: string) => {
-    e.dataTransfer.setData('text/plain', orderId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.currentTarget.classList.add('dragging');
-  };
+function TrendChart({
+  orders,
+  period,
+  now,
+  delivered = false,
+}: {
+  orders: WorkOrder[];
+  period: DashboardPeriod;
+  now: Date;
+  delivered?: boolean;
+}) {
+  const series = chartSeries(orders, period, now, delivered);
+  const color = delivered
+    ? 'var(--taller-chart-green)'
+    : 'var(--taller-chart-blue)';
+  return (
+    <div
+      className="taller-trend"
+      role="img"
+      aria-label={`${delivered ? 'Trabajos entregados' : 'Cotizaciones'}: ${money(series.reduce((sum, point) => sum + point.value, 0))} en el período`}
+    >
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+        <AreaChart
+          data={series}
+          margin={{ top: 16, right: 16, left: 16, bottom: 0 }}
+          accessibilityLayer
+        >
+          <defs>
+            <linearGradient
+              id={delivered ? 'taller-delivered-fill' : 'taller-quotes-fill'}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0" stopColor={color} stopOpacity={0.1} />
+              <stop offset="1" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            horizontal={false}
+            stroke="var(--taller-border)"
+            strokeDasharray="3 4"
+          />
+          <XAxis
+            dataKey="name"
+            axisLine={false}
+            tickLine={false}
+            minTickGap={28}
+            tick={{ fill: 'var(--taller-muted)', fontSize: 12 }}
+            tickMargin={16}
+            height={45}
+          />
+          <Tooltip
+            formatter={(value) => [
+              money(Number(value)),
+              delivered ? 'Entregado' : 'Cotizado',
+            ]}
+            contentStyle={{
+              border: '1px solid var(--taller-border)',
+              borderRadius: 8,
+              fontSize: 12,
+              color: 'var(--taller-text)',
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="value"
+            stroke={color}
+            strokeWidth={2}
+            fill={`url(#${delivered ? 'taller-delivered-fill' : 'taller-quotes-fill'})`}
+            isAnimationActive={false}
+            dot={false}
+            activeDot={{
+              r: 5,
+              fill: color,
+              stroke: 'var(--taller-surface)',
+              strokeWidth: 3,
+            }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
-  const handleDragEnd = (e: React.DragEvent) => {
-    e.currentTarget.classList.remove('dragging');
-  };
+function OrderLink({
+  order,
+  compact = false,
+}: {
+  order: WorkOrder;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      className={compact ? 'taller-update' : 'taller-event-row'}
+      href={`/dashboard/taller/ordenes/${order.id}`}
+    >
+      <span className="taller-event-icon">
+        <Wrench size={18} />
+      </span>
+      <span className="taller-event-copy">
+        <strong>
+          {order.workOrderNumber} · {order.vehicle?.plate || 'Sin placa'}
+        </strong>
+        <span>
+          {compact
+            ? statusMap[order.status]?.label
+            : order.customer?.name || 'Cliente final'}
+        </span>
+      </span>
+      <span className="taller-event-detail">
+        <strong>{money(orderAmount(order))}</strong>
+        {compact ? null : <span>{statusMap[order.status]?.label}</span>}
+      </span>
+    </Link>
+  );
+}
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+export default function TallerDashboardClient({
+  initialOrders,
+  initialError = false,
+}: {
+  initialOrders: WorkOrder[];
+  initialError?: boolean;
+}) {
+  const router = useRouter();
+  const [orders, setOrders] = useState(initialOrders);
+  const [hasLoaded, setHasLoaded] = useState(!initialError);
+  const [quotePeriod, setQuotePeriod] = useState<DashboardPeriod>('week');
+  const [deliveredPeriod, setDeliveredPeriod] =
+    useState<DashboardPeriod>('week');
+  const [view, setView] = useState<'summary' | 'board'>('summary');
+  const [now, setNow] = useState<Date | null>(null);
+  const [tenantName, setTenantName] = useState('Comerza Taller');
+  const [refreshing, setRefreshing] = useState(false);
+  const [boardBusy, setBoardBusy] = useState(false);
+  const refreshRequest = useRef<AbortController | null>(null);
+  const [error, setError] = useState(
+    initialError
+      ? 'No se pudieron cargar las órdenes. Reintenta para consultar el resumen.'
+      : '',
+  );
 
-  const handleDrop = async (e: React.DragEvent, newStatus: string) => {
-    e.preventDefault();
-    const orderId = e.dataTransfer.getData('text/plain');
-    if (!orderId) return;
+  useEffect(() => {
+    const updateClock = () => setNow(new Date());
+    updateClock();
+    const timer = setInterval(updateClock, 60_000);
+    const controller = new AbortController();
+    fetch('/api/auth/me', { credentials: 'include', signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.tenant?.name) setTenantName(data.tenant.name);
+      })
+      .catch(() => {});
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+      refreshRequest.current?.abort();
+    };
+  }, []);
 
-    const orderToMove = orders.find(o => o.id === orderId);
-    if (!orderToMove || orderToMove.status === newStatus) return;
-
-    // Optional: Add simple transition rules (e.g., cannot skip directly to READY from RECEIVED without QC, etc.)
-    // For now, allow any move that's available on Kanban to match the prompt's flexibility.
-
-    // Optimistic Update
-    const prevOrders = [...orders];
-    setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus as any } : o));
-
+  async function refresh() {
+    if (refreshRequest.current || boardBusy) return;
+    const controller = new AbortController();
+    refreshRequest.current = controller;
+    setRefreshing(true);
+    setError('');
     try {
-      const res = await fetch(`/api/taller/work-orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ newStatus })
+      const response = await fetch('/api/taller/work-orders', {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal,
       });
-      if (!res.ok) {
-        throw new Error('Error al actualizar el estado de la orden');
+      if (response.status === 401) {
+        router.push('/login');
+        return;
       }
-      // Replace with backend response to get correct timestamps/snapshots
-      const updatedOrder = await res.json();
-      setOrders(current => current.map(o => o.id === orderId ? updatedOrder : o));
-    } catch (err: any) {
-      alert(err.message);
-      // Revert optimistic update
-      setOrders(prevOrders);
+      if (!response.ok)
+        throw new Error(
+          'No se pudieron actualizar las órdenes. Conservamos el último resumen; vuelve a intentar.',
+        );
+      setOrders(await response.json());
+      setHasLoaded(true);
+      setNow(new Date());
+    } catch (failure) {
+      if (!controller.signal.aborted)
+        setError(
+          failure instanceof Error
+            ? failure.message
+            : 'No se pudieron actualizar las órdenes. Revisa tu conexión y reintenta.',
+        );
+    } finally {
+      refreshRequest.current = null;
+      if (!controller.signal.aborted) setRefreshing(false);
     }
-  };
+  }
+
+  const active = orders.filter(
+    (order) => !['DELIVERED', 'CANCELLED'].includes(order.status),
+  );
+  const latest = [...orders].sort(
+    (a, b) =>
+      Date.parse(b.updatedAt || b.createdAt) -
+      Date.parse(a.updatedAt || a.createdAt),
+  );
+  const ready = active.filter((order) => order.status === 'READY');
+  const breakdown = stateGroups.map((group) => ({
+    ...group,
+    value: active.filter((order) => group.statuses.includes(order.status))
+      .length,
+  }));
+  const quoted = now ? periodOrders(orders, quotePeriod, now) : [];
+  const delivered = now ? periodOrders(orders, deliveredPeriod, now, true) : [];
+  const deliveredValue = sumAmounts(delivered);
+  const waiting = active.filter((order) => order.status === 'WAITING_APPROVAL');
 
   return (
-    <div style={{ padding: '2rem', backgroundColor: 'var(--bg-base)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      
-      {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '2rem' }}>
-        <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.03em' }}>Taller</h1>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: '0.25rem 0 0 0', fontWeight: 500 }}>Resumen operativo del día.</p>
+    <div className="taller-dashboard">
+      <aside className="taller-summary" aria-label="Resumen del taller">
+        <div className="taller-welcome">
+          <Image
+            src="/figma/taller/craft-logo.svg"
+            alt=""
+            width={98}
+            height={98}
+            priority
+          />
+          <p>Bienvenido,</p>
+          <h2>{tenantName}</h2>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <Link href="/dashboard/taller/vehiculos/nuevo" className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <section className="taller-updates">
+          <h2>Últimas actualizaciones</h2>
+          {latest.slice(0, 5).map((order) => (
+            <OrderLink key={order.id} order={order} compact />
+          ))}
+          {latest.length === 0 ? (
+            <p className="taller-empty-copy">
+              {!hasLoaded
+                ? 'Resumen no disponible.'
+                : 'Tus primeras órdenes aparecerán aquí.'}
+            </p>
+          ) : null}
+        </section>
+        <section className="taller-deliveries">
+          <h2>Listas para entregar</h2>
+          {ready.slice(0, 2).map((order) => (
+            <Link
+              key={order.id}
+              href={`/dashboard/taller/ordenes/${order.id}`}
+              className="taller-delivery"
+            >
+              <span className="taller-delivery-status">
+                <i />
+                Lista para entregar
+              </span>
+              <strong>
+                {order.vehicle?.plate} · {order.customer?.name}
+              </strong>
+              <span>
+                {order.vehicle?.brand} {order.vehicle?.model}
+              </span>
+            </Link>
+          ))}
+          {ready.length === 0 ? (
+            <p className="taller-empty-copy">
+              No hay vehículos pendientes de entrega.
+            </p>
+          ) : null}
+          <Link
+            className="taller-register"
+            href="/dashboard/taller/vehiculos/nuevo"
+          >
             <Car size={16} /> Registrar vehículo
           </Link>
-          <Link href="/dashboard/taller/ordenes/nueva" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <ClipboardList size={16} /> Nueva orden
-          </Link>
+        </section>
+      </aside>
+      <div className="taller-dashboard-content">
+        <div className="taller-view-controls">
+          <div role="group" aria-label="Vista del taller">
+            <button
+              type="button"
+              disabled={refreshing || boardBusy}
+              aria-pressed={view === 'summary'}
+              onClick={() => setView('summary')}
+            >
+              <LayoutGrid size={15} /> Resumen
+            </button>
+            <button
+              type="button"
+              disabled={refreshing || boardBusy}
+              aria-pressed={view === 'board'}
+              onClick={() => setView('board')}
+            >
+              <List size={15} /> Tablero
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={refreshing || boardBusy}
+            className="taller-refresh"
+          >
+            <RefreshCw
+              size={15}
+              className={refreshing ? 'taller-refreshing' : ''}
+            />
+            {refreshing ? 'Actualizando…' : 'Actualizar'}
+          </button>
         </div>
-      </div>
-
-      {/* METRICS ROW (COMPACT) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2.5rem' }}>
-        <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: 'var(--shadow-xs)' }}>
-          <div style={{ backgroundColor: 'var(--bg-base)', color: 'var(--text-secondary)', padding: '0.75rem', borderRadius: '50%' }}>
-            <ClipboardList size={20} />
+        {error ? (
+          <div className="taller-error" role="alert">
+            {error}
+            <button type="button" disabled={refreshing} onClick={refresh}>
+              Reintentar
+            </button>
           </div>
-          <div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{activeOrders.length}</div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>órdenes activas</div>
+        ) : null}
+        {refreshing ? (
+          <p className="taller-sr-only" role="status">
+            Actualizando resumen del taller.
+          </p>
+        ) : null}
+        {!hasLoaded ? (
+          <div className="taller-card taller-unavailable">
+            <ClipboardList size={32} />
+            <h2>Resumen no disponible</h2>
+            <p>Actualiza las órdenes para volver a consultar tu taller.</p>
           </div>
-        </div>
-        
-        <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: 'var(--shadow-xs)' }}>
-          <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning)', padding: '0.75rem', borderRadius: '50%' }}>
-            <AlertCircle size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{waitingOrders.length}</div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>pendientes de aprobación</div>
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: 'var(--shadow-xs)' }}>
-          <div style={{ backgroundColor: 'var(--accent-dim)', color: 'var(--accent)', padding: '0.75rem', borderRadius: '50%' }}>
-            <Wrench size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{inRepairOrders.length}</div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>en reparación</div>
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: 'white', borderRadius: 'var(--radius-md)', padding: '1.25rem', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: 'var(--shadow-xs)' }}>
-          <div style={{ backgroundColor: 'var(--success-bg)', color: 'var(--success)', padding: '0.75rem', borderRadius: '50%' }}>
-            <CheckCircle2 size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{readyOrders.length}</div>
-            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>listas para entregar</div>
-          </div>
-        </div>
-      </div>
-
-      {/* KANBAN BOARD */}
-      <div style={{ flex: 1, display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', minHeight: '500px' }} className="hide-scrollbar">
-        {activeOrders.length === 0 ? (
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-strong)', padding: '4rem' }}>
-             <Car size={48} color="var(--text-muted)" style={{ marginBottom: '1rem' }} />
-             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>No hay órdenes activas</h3>
-             <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>Cuando recibas un vehículo, aparecerá aquí.</p>
-             <Link href="/dashboard/taller/ordenes/nueva" className="btn btn-primary">
-               Crear primera orden
-             </Link>
-          </div>
+        ) : view === 'board' ? (
+          <TallerOrderBoard
+            disabled={refreshing}
+            onBusy={setBoardBusy}
+            orders={orders}
+            onUpdated={(updated) =>
+              setOrders((current) =>
+                current.map((order) =>
+                  order.id === updated.id ? updated : order,
+                ),
+              )
+            }
+          />
         ) : (
-          columns.map(col => {
-            const columnOrders = activeOrders.filter(o => o.status === col);
-            const config = statusMap[col] || { label: col, color: 'var(--text-muted)', bg: 'var(--bg-base)' };
-            
-            return (
-              <div 
-                key={col} 
-                style={{ width: '300px', minWidth: '300px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, col)}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 0.25rem' }}>
-                  <h3 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: config.color }}>
-                    {config.label}
-                  </h3>
-                  <div style={{ backgroundColor: 'var(--border)', color: 'var(--text-secondary)', padding: '0.1rem 0.5rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 700 }}>
-                    {columnOrders.length}
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {columnOrders.map(order => (
-                    <div 
-                      key={order.id} 
-                      draggable 
-                      onDragStart={(e) => handleDragStart(e, order.id)}
-                      onDragEnd={handleDragEnd}
-                      style={{ cursor: 'grab' }}
+          <div className="taller-widget-grid">
+            <section
+              className="taller-card taller-quotes"
+              aria-labelledby="taller-quotes-title"
+            >
+              <header className="taller-card-header">
+                <h2 id="taller-quotes-title">Cotizaciones</h2>
+                <PeriodControl
+                  value={quotePeriod}
+                  onChange={setQuotePeriod}
+                  label="Período de cotizaciones"
+                />
+              </header>
+              <div className="taller-stat">
+                <strong>{now ? money(sumAmounts(quoted)) : '—'}</strong>
+                <span>Importe cotizado · {quoted.length} órdenes</span>
+              </div>
+              {now ? (
+                <TrendChart orders={orders} period={quotePeriod} now={now} />
+              ) : (
+                <p className="taller-empty-copy" role="status">
+                  Preparando gráfica…
+                </p>
+              )}
+            </section>
+            <section
+              className="taller-card taller-events"
+              aria-labelledby="taller-events-title"
+            >
+              <header className="taller-card-header">
+                <h2 id="taller-events-title">Actividad reciente</h2>
+                <Link
+                  className="taller-small-button"
+                  href="/dashboard/taller/ordenes"
+                >
+                  Ver todas
+                </Link>
+              </header>
+              <div className="taller-event-heading">
+                <span>Orden de trabajo</span>
+                <span>Detalle</span>
+              </div>
+              <div className="taller-event-list">
+                {latest.slice(0, 4).map((order) => (
+                  <OrderLink key={order.id} order={order} />
+                ))}
+                {orders.length === 0 ? (
+                  <div className="taller-empty-state">
+                    <ClipboardList size={28} />
+                    <h3>Empieza con una orden</h3>
+                    <p>
+                      Registra un vehículo para dar seguimiento a su reparación.
+                    </p>
+                    <Link
+                      className="taller-small-button"
+                      href="/dashboard/taller/ordenes/nueva"
                     >
-                      <Link href={`/dashboard/taller/ordenes/${order.id}`} style={{ display: 'block', textDecoration: 'none' }}>
-                        <div style={{ backgroundColor: 'white', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '1rem', boxShadow: 'var(--shadow-xs)', borderLeft: `3px solid ${config.color}`, transition: 'all 0.2s' }} className="kanban-card">
-                          
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{order.workOrderNumber}</span>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Hace {formatDistanceToNow(new Date(order.updatedAt || order.createdAt), { locale: es })}</span>
-                          </div>
-                          
-                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.25rem', letterSpacing: '-0.02em' }}>
-                            {order.vehicle?.plate}
-                          </div>
-                          
-                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', fontWeight: 500 }}>
-                            {order.vehicle?.brand} {order.vehicle?.model}
-                          </div>
-                          
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                             <User size={14} />
-                             {order.customer?.name}
-                          </div>
-                          
-                          <div style={{ borderTop: '1px dashed var(--border)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                               <Clock size={12} /> {order.entryMileage ? `${order.entryMileage.toLocaleString()} km` : 'Sin km'}
-                             </div>
-                             
-                             {order.assignedUser && (
-                               <div style={{ fontSize: '0.7rem', fontWeight: 600, backgroundColor: 'var(--bg-base)', color: 'var(--text-secondary)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                                 {order.assignedUser.name.split(' ')[0]}
-                               </div>
-                             )}
-                          </div>
-
-                        </div>
-                      </Link>
-                    </div>
-                  ))}
-                  
-                  {columnOrders.length === 0 && (
-                    <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem', border: '1px dashed var(--border)', borderRadius: 'var(--radius-md)' }}>
-                      Vacío
-                    </div>
-                  )}
+                      Crear primera orden
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+            <section
+              className="taller-card taller-breakdown"
+              aria-labelledby="taller-breakdown-title"
+            >
+              <header className="taller-card-header">
+                <h2 id="taller-breakdown-title">Estado del taller</h2>
+                <span className="taller-caption">Órdenes activas</span>
+              </header>
+              <div className="taller-donut">
+                <div
+                  className="taller-donut-chart"
+                  role="img"
+                  aria-label={breakdown
+                    .map((group) => `${group.name}: ${group.value}`)
+                    .join(', ')}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={breakdown}
+                        dataKey="value"
+                        innerRadius={82}
+                        outerRadius={112}
+                        paddingAngle={0}
+                        stroke="none"
+                        startAngle={90}
+                        endAngle={-270}
+                        isAnimationActive={false}
+                      >
+                        {breakdown.map((group) => (
+                          <Cell key={group.name} fill={group.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => [Number(value), 'Órdenes']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="taller-donut-total">
+                  <strong>{active.length}</strong>
+                  <span>activas</span>
                 </div>
               </div>
-            );
-          })
+              <div className="taller-donut-legend">
+                {breakdown.map((group) => (
+                  <div key={group.name}>
+                    <i style={{ background: group.color }} />
+                    <span>{group.name}</span>
+                    <strong>{group.value}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section
+              className="taller-card taller-income"
+              aria-labelledby="taller-income-title"
+            >
+              <header className="taller-card-header">
+                <h2 id="taller-income-title">Trabajos entregados</h2>
+                <PeriodControl
+                  value={deliveredPeriod}
+                  onChange={setDeliveredPeriod}
+                  label="Período de entregas"
+                />
+              </header>
+              <div className="taller-stat">
+                <strong>
+                  {now ? money(deliveredValue) : '—'}
+                  <CheckCheck size={20} />
+                </strong>
+                <span>Valor autorizado de las entregas</span>
+              </div>
+              {now ? (
+                <TrendChart
+                  orders={orders}
+                  period={deliveredPeriod}
+                  now={now}
+                  delivered
+                />
+              ) : null}
+              <div className="taller-counters">
+                <div>
+                  <strong>{delivered.length}</strong>
+                  <span>Entregadas en período</span>
+                </div>
+                <div>
+                  <strong>{waiting.length}</strong>
+                  <span>Por autorizar</span>
+                </div>
+                <div>
+                  <strong>{ready.length}</strong>
+                  <span>Listas para entregar</span>
+                </div>
+              </div>
+            </section>
+          </div>
         )}
+        <p className="taller-data-note">
+          <Clock3 size={13} />
+          {now
+            ? `Hora local: ${now.toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit' })}.`
+            : 'Preparando resumen.'}{' '}
+          Los importes corresponden a órdenes; no confirman pagos recibidos.
+        </p>
       </div>
-
-      <style>{`
-        .kanban-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
-        .dragging { opacity: 0.5; cursor: grabbing !important; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 }

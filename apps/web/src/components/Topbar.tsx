@@ -5,20 +5,40 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import './Topbar.css';
 
-export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
+interface Notification {
+  id: string;
+  type: 'INFO' | 'WARNING' | 'SUCCESS';
+  title: string;
+  message: string;
+}
+
+export default function Topbar({ onMenuClick, tallerDashboard = false }: { onMenuClick?: () => void, tallerDashboard?: boolean }) {
   const router = useRouter();
-  const [userName, setUserName] = useState('Carlos Méndez');
+  const [userName, setUserName] = useState('Usuario');
   const [userRole, setUserRole] = useState('Administrador');
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [tenantName, setTenantName] = useState('');
   
   // Notifications state
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   
   // Profile menu state
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  useEffect(() => {
+    if (!showNotifications && !showProfileMenu) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setShowNotifications(false);
+      setShowProfileMenu(false);
+      const label = showProfileMenu ? 'Opciones de usuario' : 'Notificaciones';
+      document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)?.focus();
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [showNotifications, showProfileMenu]);
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -142,10 +162,11 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
             >
               <Menu size={20} />
             </button>
+            {tallerDashboard ? <h1 className="taller-topbar-title">Dashboard de Taller</h1> : null}
           </div>
 
           <div className="topbar-right">
-            <div className="search-container">
+            {tallerDashboard ? <Link href="/dashboard/taller/ordenes" className="icon-btn" aria-label="Buscar órdenes" title="Buscar órdenes"><Search size={18} /></Link> : <div className="search-container">
               <Search size={18} className="search-icon" aria-hidden="true" />
               <input 
                 type="text" 
@@ -153,11 +174,11 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 className="search-input"
                 aria-label="Buscar"
               />
-            </div>
+            </div>}
 
-            <Link href="/dashboard/ventas" className="btn btn-primary new-sale-btn" aria-label="Nueva venta">
+            <Link href={tallerDashboard ? '/dashboard/taller/ordenes/nueva' : '/dashboard/ventas'} className="btn btn-primary new-sale-btn" aria-label={tallerDashboard ? 'Nueva orden' : 'Nueva venta'} title={tallerDashboard ? 'Nueva orden' : 'Nueva venta'}>
               <Plus size={18} />
-              <span className="new-sale-text">Nueva venta</span>
+              <span className="new-sale-text">{tallerDashboard ? 'Nueva orden' : 'Nueva venta'}</span>
             </Link>
 
             <div style={{ position: 'relative' }}>
@@ -165,6 +186,8 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 className="icon-btn relative" 
                 onClick={() => setShowNotifications(!showNotifications)}
                 aria-label="Notificaciones"
+                aria-expanded={showNotifications}
+                aria-controls="comerza-notifications"
               >
                 <Bell size={20} />
                 {notifications.length > 0 && (
@@ -173,7 +196,7 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
               </button>
 
               {showNotifications && (
-                <div className="dropdown-panel notifications-panel">
+                <div id="comerza-notifications" className="dropdown-panel notifications-panel">
                   <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid var(--glass-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Notificaciones</h3>
                   </div>
@@ -224,6 +247,8 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 className="user-profile-btn"
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 aria-label="Opciones de usuario"
+                aria-expanded={showProfileMenu}
+                aria-controls="comerza-profile-menu"
               >
                 <div className="avatar">
                   {userName.charAt(0).toUpperCase()}
@@ -235,7 +260,7 @@ export default function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
               </button>
 
               {showProfileMenu && (
-                <div className="dropdown-panel profile-panel">
+                <div id="comerza-profile-menu" className="dropdown-panel profile-panel">
                   <div className="profile-header">
                     <p className="profile-name">{userName}</p>
                     <p className="profile-role">{userRole}</p>

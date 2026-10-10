@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
@@ -66,11 +67,33 @@ const navGroups = [
   }
 ];
 
-export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose?: () => void }) {
+export default function Sidebar({ isOpen, onClose, compact = false }: { isOpen?: boolean, onClose?: () => void, compact?: boolean }) {
   const pathname = usePathname();
   const [tenantName, setTenantName] = useState('Mi Comercio');
   const [allowedFeatures, setAllowedFeatures] = useState<string[]>([]);
   const [hasTallerAddon, setHasTallerAddon] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const main = document.querySelector<HTMLElement>('.main-content');
+    const wasInert = main?.inert ?? false;
+    if (main) main.inert = true;
+    const oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    sidebarRef.current?.querySelector<HTMLElement>('a, button')?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); onClose?.(); }
+      if (event.key !== 'Tab') return;
+      const elements = Array.from(sidebarRef.current?.querySelectorAll<HTMLElement>('a, button') || []);
+      const first = elements[0], last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => { document.removeEventListener('keydown', handleKey); if (main) main.inert = wasInert; document.body.style.overflow = oldOverflow; previousFocus?.focus(); };
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -78,7 +101,6 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
         const res = await fetch('/api/auth/me?t=' + Date.now(), { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          console.log("DEBUG /api/auth/me response:", data);
           if (data.tenant?.name) {
             setTenantName(data.tenant.name);
           }
@@ -99,10 +121,11 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
   return (
     <>
       {/* Overlay para móvil */}
-      {isOpen && <div className="sidebar-overlay" onClick={onClose} />}
+      {isOpen && <button type="button" className="sidebar-overlay" onClick={onClose} aria-label="Cerrar navegación" />}
       
-      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
-        <div className="sidebar-brand">COMERZA</div>
+      <aside ref={sidebarRef} role={isOpen ? 'dialog' : undefined} aria-modal={isOpen ? true : undefined} aria-label="Navegación de Comerza" className={`sidebar ${isOpen ? 'open' : ''}`}>
+        {isOpen ? <button type="button" className="btn btn-outline" onClick={onClose}>Cerrar menú</button> : null}
+        <div className="sidebar-brand">{compact ? <Image src="/figma/taller/craft-logo.svg" width={30} height={30} alt="Comerza" /> : 'COMERZA'}</div>
         
         <div className="sidebar-header">
           <div className="tenant-selector">
@@ -143,9 +166,11 @@ export default function Sidebar({ isOpen, onClose }: { isOpen?: boolean, onClose
                         href={item.href}
                         className={`nav-item ${isActive ? 'active' : ''}`}
                         onClick={onClose}
+                        title={compact ? item.name : undefined}
+                        aria-current={isActive ? 'page' : undefined}
                       >
                         <Icon size={18} className="nav-icon" />
-                        <span>{item.name}</span>
+                        <span className={compact ? 'taller-nav-label' : undefined}>{item.name}</span>
                       </Link>
                     );
                   })}
