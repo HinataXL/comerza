@@ -23,6 +23,6 @@ export const normalizePhoneNumber = (phone?: string): string => {
 
 export const createWhatsAppLink = (phone: string, text: string): string => {
   const normalized = normalizePhoneNumber(phone);
-  if (!normalized) return '';
+  // Sin teléfono, WhatsApp permite elegir el destinatario y conserva el mensaje.
   return `https://wa.me/${normalized}?text=${encodeURIComponent(text)}`;
 };
