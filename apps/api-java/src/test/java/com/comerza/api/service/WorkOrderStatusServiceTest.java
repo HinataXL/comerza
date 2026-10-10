@@ -51,7 +51,7 @@ class WorkOrderStatusServiceTest {
 
     @Test
     void testValidStatusTransition_ReceivedToDiagnosis() {
-        when(workOrderRepository.findByIdAndTenantId("wo-1", "tenant-123")).thenReturn(Optional.of(workOrder));
+        when(workOrderRepository.findForUpdate("wo-1", "tenant-123")).thenReturn(Optional.of(workOrder));
         when(workOrderRepository.save(any(WorkOrder.class))).thenReturn(workOrder);
 
         WorkOrder updated = statusService.changeStatus("wo-1", "tenant-123", WorkOrderStatus.DIAGNOSIS, user);
@@ -62,7 +62,7 @@ class WorkOrderStatusServiceTest {
 
     @Test
     void testInvalidStatusTransition_ReceivedToDelivered() {
-        when(workOrderRepository.findByIdAndTenantId("wo-1", "tenant-123")).thenReturn(Optional.of(workOrder));
+        when(workOrderRepository.findForUpdate("wo-1", "tenant-123")).thenReturn(Optional.of(workOrder));
 
         Exception exception = assertThrows(RuntimeException.class, () -> 
             statusService.changeStatus("wo-1", "tenant-123", WorkOrderStatus.DELIVERED, user)

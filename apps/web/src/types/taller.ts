@@ -53,6 +53,7 @@ export interface WorkOrder {
   deliveredAt?: string;
   createdAt: string;
   updatedAt: string;
+  items?: WorkOrderItem[];
   vehicle: Vehicle;
   customer: {
     id: string;
@@ -63,4 +64,17 @@ export interface WorkOrder {
     id: string;
     name: string;
   };
+}
+
+export type WorkOrderItemType = 'PART' | 'SERVICE' | 'LABOR' | 'OTHER';
+
+export interface WorkOrderItem {
+  id?: string;
+  itemType: WorkOrderItemType;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  subtotal: number;
+  product?: { id: string; name: string } | null;
 }

@@ -37,10 +37,12 @@ public class WorkOrderItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "productId")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"tenant", "hibernateLazyInitializer", "handler"})
     private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "serviceId")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"tenant", "hibernateLazyInitializer", "handler"})
     private TallerService service;
 
     @Column(columnDefinition = "TEXT")

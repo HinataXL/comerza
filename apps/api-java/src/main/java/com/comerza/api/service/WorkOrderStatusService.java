@@ -23,7 +23,7 @@ public class WorkOrderStatusService {
 
     @Transactional
     public WorkOrder changeStatus(String workOrderId, String tenantId, WorkOrderStatus newStatus, User changedBy) {
-        WorkOrder workOrder = workOrderRepository.findByIdAndTenantId(workOrderId, tenantId)
+        WorkOrder workOrder = workOrderRepository.findForUpdate(workOrderId, tenantId)
                 .orElseThrow(() -> new RuntimeException("WorkOrder not found"));
 
         WorkOrderStatus previousStatus = workOrder.getStatus();

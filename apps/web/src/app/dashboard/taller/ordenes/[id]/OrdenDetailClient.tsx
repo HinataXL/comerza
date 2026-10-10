@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react';
 import { WorkOrder, WorkOrderStatus } from '@/types/taller';
 import Link from 'next/link';
-import { ArrowLeft, Car, FileText, User, Calendar, MapPin, Gauge, MoreVertical, Search, MessageCircle, Share, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Car, User, Calendar, MapPin, Gauge, MoreVertical, Search, MessageCircle, Share, CheckCircle2 } from 'lucide-react';
 import WorkOrderStatusBadge from '../../components/WorkOrderStatusBadge';
 import { createWhatsAppLink } from '@/lib/utils/phone';
 import WorkOrderStatusStepper from '../../components/WorkOrderStatusStepper';
 import WorkOrderChecklist from '../../components/WorkOrderChecklist';
 import WorkOrderPhotoGallery from '../../components/WorkOrderPhotoGallery';
+import WorkOrderQuote from '../../components/WorkOrderQuote';
 import { useRouter } from 'next/navigation';
 
 export default function OrdenDetailClient({ initialOrder, token }: { initialOrder: WorkOrder, token: string }) {
@@ -15,6 +16,8 @@ export default function OrdenDetailClient({ initialOrder, token }: { initialOrde
   const [order, setOrder] = useState<WorkOrder>(initialOrder);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quoteDirty, setQuoteDirty] = useState(false);
+  const [quoteSuccess, setQuoteSuccess] = useState('');
   
   // Modals
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -63,6 +66,10 @@ export default function OrdenDetailClient({ initialOrder, token }: { initialOrde
   const transitions = availableTransitions();
 
   const handleStatusClick = (status: WorkOrderStatus) => {
+    if (quoteDirty || loading) {
+      setError('Guarda la cotización antes de cambiar el estado.');
+      return;
+    }
     if (order.status === 'QUALITY_CONTROL' && status === 'READY') {
       setShowQCModal(true);
       return;
@@ -118,16 +125,40 @@ export default function OrdenDetailClient({ initialOrder, token }: { initialOrde
   };
 
   const handleSendQuote = async () => {
+    if (loading || quoteDirty) {
+      setError('Guarda los cambios de la cotización antes de enviarla.');
+      setActiveTab('COTIZACION');
+      return;
+    }
+    if (!order.items?.length || !['RECEIVED', 'DIAGNOSIS', 'WAITING_APPROVAL'].includes(order.status)) {
+      setError('Agrega y guarda los conceptos de una cotización pendiente de autorización antes de enviarla.');
+      setActiveTab('COTIZACION');
+      return;
+    }
+    const whatsappWindow = window.open('', '_blank');
+    if (!whatsappWindow) { setError('Permite las ventanas emergentes para abrir WhatsApp.'); return; }
+    whatsappWindow.opener = null;
     setLoading(true);
+    setError(null);
     try {
+      if (order.status !== 'WAITING_APPROVAL') {
+        const statusRes = await fetch(`/api/taller/work-orders/${order.id}/status`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newStatus: 'WAITING_APPROVAL' }),
+        });
+        if (!statusRes.ok) throw new Error('No se pudo poner la orden en espera de autorización.');
+        setOrder(await statusRes.json());
+        router.refresh();
+      }
       const res = await fetch(`/api/taller/work-orders/${order.id}/approval-link`, { method: 'POST' });
-      if (!res.ok) throw new Error('Error al generar enlace de cotización');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al generar enlace de cotización');
+      if (typeof data.url !== 'string' || !data.url) throw new Error('No se recibió el enlace de autorización.');
       const link = `${window.location.origin}/public/taller/aprobacion/${data.url}`;
       const text = `Hola ${order.customer?.name},\nTe enviamos la cotización de los trabajos para tu ${order.vehicle?.brand} ${order.vehicle?.model}.\nRevísala y autorízala ingresando a este enlace seguro:\n${link}`;
-      window.open(createWhatsAppLink(order.customer?.phone || '', text), '_blank');
-    } catch (err: any) {
-      alert(err.message);
+      whatsappWindow.location.replace(createWhatsAppLink(order.customer?.phone || '', text));
+    } catch (err: unknown) {
+      whatsappWindow.close();
+      setError(err instanceof Error ? err.message : 'No se pudo enviar la cotización.');
     } finally {
       setLoading(false);
       setShowActionMenu(false);
@@ -216,6 +247,7 @@ export default function OrdenDetailClient({ initialOrder, token }: { initialOrde
       </div>
 
       <div style={{ padding: '2rem', flex: 1 }}>
+        {quoteSuccess && !quoteDirty && <p role="status" style={{ padding: '1rem', background: 'var(--success-bg)', borderRadius: 'var(--radius-md)', marginBottom: '1rem' }}>{quoteSuccess}</p>}
         {error && (
           <div style={{ backgroundColor: 'var(--danger-bg)', color: 'var(--danger)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', fontWeight: 500, fontSize: '0.9rem' }}>
             {error}
@@ -303,18 +335,10 @@ export default function OrdenDetailClient({ initialOrder, token }: { initialOrde
                   </div>
                 )}
 
-                {activeTab === 'COTIZACION' && (
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.5rem' }}>Cotización y Conceptos</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem', border: '1px dashed var(--border-strong)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-base)' }}>
-                      <FileText size={32} color="var(--text-muted)" style={{ marginBottom: '1rem' }} />
-                      <p style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Módulo en Construcción (FASE 4)</p>
-                      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textAlign: 'center', maxWidth: '300px', marginTop: '0.5rem' }}>
-                        La edición detallada de cotizaciones será implementada pronto.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <div hidden={activeTab !== 'COTIZACION'}>
+                  <WorkOrderQuote key={order.updatedAt} order={order} busy={loading} onDirtyChange={setQuoteDirty}
+                    onSaved={updated => { setOrder(updated); setError(null); setQuoteSuccess('Cotización guardada. Ya puedes enviarla al cliente.'); router.refresh(); }} />
+                </div>
 
                 {activeTab === 'EVIDENCIA' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>

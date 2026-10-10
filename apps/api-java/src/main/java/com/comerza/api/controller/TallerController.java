@@ -29,6 +29,19 @@ public class TallerController {
     private final WorkOrderService workOrderService;
     private final WorkOrderStatusService workOrderStatusService;
     private final PublicTokenService publicTokenService;
+    private final com.comerza.api.repository.WorkOrderRepository workOrderRepository;
+    private final com.comerza.api.service.WorkOrderQuoteService workOrderQuoteService;
+
+    @PutMapping("/work-orders/{id}/quote")
+    public ResponseEntity<?> saveQuote(@PathVariable String id,
+            @jakarta.validation.Valid @RequestBody com.comerza.api.dto.WorkOrderQuoteRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        try {
+            return ResponseEntity.ok(workOrderQuoteService.saveQuote(id, userDetails.getUser().getTenant().getId(), request));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of("message", e.getReason()));
+        }
+    }
 
     // --- VEHICLES ---
 
@@ -93,11 +106,15 @@ public class TallerController {
     }
 
     @PostMapping("/work-orders/{id}/approval-link")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> generateApprovalLink(@PathVariable String id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
-            WorkOrder workOrder = workOrderService.getWorkOrderByIdAndTenant(id, userDetails.getUser().getTenant().getId());
+            WorkOrder workOrder = workOrderRepository.findForUpdate(id, userDetails.getUser().getTenant().getId()).orElseThrow(() -> new RuntimeException("Orden no encontrada."));
             if (workOrder.getStatus() != com.comerza.api.enums.WorkOrderStatus.WAITING_APPROVAL) {
-                return ResponseEntity.badRequest().body(Map.of("message", "WorkOrder must be in WAITING_APPROVAL state"));
+                return ResponseEntity.badRequest().body(Map.of("message", "La orden debe estar en espera de autorización para enviar la cotización."));
+            }
+            if (workOrder.getItems().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Agrega y guarda los conceptos antes de enviar la cotización."));
             }
             String token = publicTokenService.generateToken(workOrder, PublicTokenType.APPROVAL, 7);
             
@@ -112,9 +129,10 @@ public class TallerController {
     }
 
     @PostMapping("/work-orders/{id}/tracking-link")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<?> generateTrackingLink(@PathVariable String id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
-            WorkOrder workOrder = workOrderService.getWorkOrderByIdAndTenant(id, userDetails.getUser().getTenant().getId());
+            WorkOrder workOrder = workOrderRepository.findForUpdate(id, userDetails.getUser().getTenant().getId()).orElseThrow(() -> new RuntimeException("Orden no encontrada."));
             String token = publicTokenService.generateToken(workOrder, PublicTokenType.TRACKING, 30);
             
             return ResponseEntity.ok(PublicLinkResponse.builder()

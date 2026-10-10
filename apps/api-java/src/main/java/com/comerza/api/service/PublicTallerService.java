@@ -26,6 +26,7 @@ public class PublicTallerService {
     private final WorkOrderRepository workOrderRepository;
     private final WorkOrderStatusHistoryRepository historyRepository;
     private final ObjectMapper objectMapper;
+    private final jakarta.persistence.EntityManager entityManager;
     private final org.springframework.context.ApplicationContext applicationContext;
 
     @Transactional(readOnly = true)
@@ -66,7 +67,10 @@ public class PublicTallerService {
     @Transactional
     public void approveWorkOrder(String token) {
         PublicToken publicToken = publicTokenService.validateToken(token, PublicTokenType.APPROVAL);
-        WorkOrder order = publicToken.getWorkOrder();
+        WorkOrder order = workOrderRepository.findForUpdate(publicToken.getWorkOrder().getId(), publicToken.getWorkOrder().getTenant().getId()).orElseThrow();
+        entityManager.refresh(order);
+        entityManager.refresh(publicToken);
+        publicTokenService.validateToken(token, PublicTokenType.APPROVAL);
 
         if (order.getStatus() != WorkOrderStatus.WAITING_APPROVAL) {
             throw new RuntimeException("WorkOrder is not in WAITING_APPROVAL state");
@@ -133,7 +137,10 @@ public class PublicTallerService {
     @Transactional
     public void rejectWorkOrder(String token, PublicApprovalRejectRequest request) {
         PublicToken publicToken = publicTokenService.validateToken(token, PublicTokenType.APPROVAL);
-        WorkOrder order = publicToken.getWorkOrder();
+        WorkOrder order = workOrderRepository.findForUpdate(publicToken.getWorkOrder().getId(), publicToken.getWorkOrder().getTenant().getId()).orElseThrow();
+        entityManager.refresh(order);
+        entityManager.refresh(publicToken);
+        publicTokenService.validateToken(token, PublicTokenType.APPROVAL);
 
         if (order.getStatus() != WorkOrderStatus.WAITING_APPROVAL) {
             throw new RuntimeException("WorkOrder is not in WAITING_APPROVAL state");
